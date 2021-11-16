@@ -1,9 +1,9 @@
 package entity
 
 import (
-	"strconv"
+	"context"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/jackc/pgx/v4"
 )
 
 type Post struct {
@@ -17,10 +17,12 @@ func NewPost(ID ID, discordID Snowflake, channelID Ref, userID Ref, message stri
 	return &Post{IdentifiableDiscordEntity{IdentifiableEntity{ID}, discordID}, channelID, userID, message}
 }
 
-func NewPostFromDiscord(m *discordgo.Message, userID Ref, channelID Ref) (*Post, error) {
-	discordID, err := strconv.ParseUint(m.ID, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	return NewPost(0, discordID, channelID, userID, m.Content), nil
+func CreatePost(ctx context.Context, tx pgx.Tx, p *Post) error {
+	return Query(
+		ctx,
+		tx,
+		`insert into post (discord_id, channel_id, user_id, message) values ($1, $2, $3, $4) returning id`,
+		[]interface{}{p.DiscordID, p.ChannelID, p.UserID, p.Message},
+		[]interface{}{&p.ID},
+	)
 }

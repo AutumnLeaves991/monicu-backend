@@ -2,13 +2,13 @@ package entity
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/jackc/pgx/v4"
 )
 
 type Image struct {
@@ -28,11 +28,7 @@ func NewImageFromAttachment(at *discordgo.MessageAttachment, postID Ref) *Image 
 	return NewImage(0, postID, at.ProxyURL, uint32(at.Width), uint32(at.Height), uint64(at.Size))
 }
 
-func newImageFromEmbed(ctx context.Context, em *discordgo.MessageEmbed, postID Ref) (*Image, error) {
-	if em.Image == nil {
-		return nil, errors.New("embed has no images")
-	}
-
+func NewImageFromEmbed(ctx context.Context, em *discordgo.MessageEmbed, postID Ref) (*Image, error) {
 	size, err := fetchImageSize(ctx, em.Image.ProxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't fetch image size: %w", err)
@@ -61,4 +57,14 @@ func fetchImageSize(ctx context.Context, url string) (uint64, error) {
 	}
 
 	return clen, nil
+}
+
+func CreateImage(ctx context.Context, tx pgx.Tx, im *Image) error {
+	return Query(
+		ctx,
+		tx,
+		`insert into image (post_id, url, width, height, size) values ($1, $2, $3, $4, $5) returning id`,
+		[]interface{}{im.PostID, im.URL, im.Width, im.Height, im.Size},
+		[]interface{}{&im.ID},
+	)
 }

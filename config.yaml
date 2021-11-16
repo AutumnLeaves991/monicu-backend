@@ -1,0 +1,13 @@
+Discord:
+  Auth: # $CONF_DISCORD_AUTH
+  Guilds: [ 372766620977725441 ]
+  Channels: [ 393978308372594688 ]
+
+Posts:
+  IgnoreRegexp: nopost
+
+Storage:
+  PostgresDSN: # $CONF_STORAGE_POSTGRESDSN
+
+Logging:
+  Level: debug
