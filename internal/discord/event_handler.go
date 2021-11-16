@@ -9,5 +9,9 @@ func (d *Discord) onReady(_ *discordgo.Session, e *discordgo.Ready) {
 }
 
 func (d *Discord) onMessageCreate(_ *discordgo.Session, e *discordgo.MessageCreate) {
-	d.maybeCreatePost(e)
+	d.maybeCreatePost(e.Message)
+}
+
+func (d *Discord) onMessageDelete(_ *discordgo.Session, e *discordgo.MessageDelete) {
+	d.maybeDeletePost(e.Message)
 }

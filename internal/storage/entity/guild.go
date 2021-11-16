@@ -15,7 +15,7 @@ func NewGuild(ID ID, discordID Snowflake) *Guild {
 }
 
 func FindOrCreateGuild(ctx context.Context, tx pgx.Tx, g *Guild) error {
-	return Query(
+	return query(
 		ctx,
 		tx,
 		`with e as (insert into guild (discord_id) values ($1) on conflict do nothing returning id) select id from e union select id from guild where discord_id = $1`,

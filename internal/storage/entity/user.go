@@ -25,7 +25,7 @@ func NewUserFromDiscord(u *discordgo.User) (*User, error) {
 }
 
 func FindOrCreateUser(ctx context.Context, tx pgx.Tx, u *User) error {
-	return Query(
+	return query(
 		ctx,
 		tx,
 		`with e as (insert into "user" (discord_id) values ($1) on conflict do nothing returning id) select id from e union select id from "user" where discord_id = $1`,

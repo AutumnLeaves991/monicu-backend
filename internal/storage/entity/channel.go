@@ -16,7 +16,7 @@ func NewChannel(ID ID, discordID Snowflake, guildID Ref) *Channel {
 }
 
 func FindOrCreateChannel(ctx context.Context, tx pgx.Tx, ch *Channel) error {
-	return Query(
+	return query(
 		ctx,
 		tx,
 		`with e as (insert into channel (discord_id, guild_id) values ($1, $2) on conflict do nothing returning id)  select id from e union select id from channel where discord_id = $1 and guild_id = $2`,

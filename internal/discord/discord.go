@@ -46,6 +46,7 @@ func NewDiscord(ctx context.Context, log *zap.Logger, auth string, config *Confi
 func (d *Discord) addHandlers() {
 	d.session.AddHandlerOnce(d.onReady)
 	d.session.AddHandler(d.onMessageCreate)
+	d.session.AddHandler(d.onMessageDelete)
 }
 
 func (d *Discord) handleTaskQueue() {
