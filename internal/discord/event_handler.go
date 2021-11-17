@@ -13,7 +13,7 @@ func (d *Discord) onMessageUpdate(_ *discordgo.Session, e *discordgo.MessageUpda
 		if len(e.Embeds) != len(ee.message.Embeds) {
 			d.logger.Sugar().Debugf("Received embed addition update event for message %s.", ee.message.ID)
 			ee.message.Embeds = e.Embeds
-			d.maybeCreatePost(e.Message)
+			d.maybeCreatePost(ee.message)
 		}
 
 		ee.timer.Stop()
