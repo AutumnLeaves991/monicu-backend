@@ -93,6 +93,7 @@ func main() {
 
 	lcf := zap.NewDevelopmentConfig() // to later switch level without reallocation
 	lcf.Level.SetLevel(zapcore.DebugLevel)
+	lcf.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	lcf.DisableCaller = true
 	log, _ := lcf.Build()
 

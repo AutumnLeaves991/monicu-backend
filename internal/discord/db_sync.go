@@ -93,10 +93,10 @@ func (d *Discord) maybeDeletePost(m *discordgo.Message) {
 		if ok, err := entity.DeletePost(d.ctx, tx, entity.NewPostFromSnowflakeID(m.ID, 0, 0, "")); err != nil {
 			return err
 		} else if ok {
-			d.logger.Sugar().Debugf("Deleted post %s.", m.ID)
-		} else {
-			d.logger.Sugar().Warnf("Attempted to delete post %s but SQL query returned zero affected rows.", m.ID)
-		}
+			d.logger.Sugar().Infof("Deleted post %s.", m.ID)
+		} /*else {
+			d.logger.Sugar().Debugf("Attempted to delete post %s but SQL query returned zero affected rows.", m.ID)
+		}*/
 
 		return nil
 	}); err != nil {

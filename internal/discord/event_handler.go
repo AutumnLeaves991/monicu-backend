@@ -28,3 +28,10 @@ func (d *Discord) onMessageCreate(_ *discordgo.Session, e *discordgo.MessageCrea
 func (d *Discord) onMessageDelete(_ *discordgo.Session, e *discordgo.MessageDelete) {
 	d.maybeDeletePost(e.Message)
 }
+
+func (d *Discord) onMessageDeleteBulk(_ *discordgo.Session, e *discordgo.MessageDeleteBulk) {
+	d.logger.Sugar().Debugf("Bulk-deleting posts in channel %s of guild %s.", e.ChannelID, e.GuildID)
+	for _, m := range e.Messages {
+		d.maybeDeletePost(&discordgo.Message{ID: m})
+	}
+}

@@ -52,9 +52,14 @@ func NewDiscord(ctx context.Context, log *zap.Logger, auth string, config *Confi
 
 func (d *Discord) addHandlers() {
 	d.session.AddHandlerOnce(d.onReady)
-	d.session.AddHandler(d.onMessageUpdate)
-	d.session.AddHandler(d.onMessageCreate)
-	d.session.AddHandler(d.onMessageDelete)
+	for _, h := range []interface{}{
+		d.onMessageUpdate,
+		d.onMessageCreate,
+		d.onMessageDelete,
+		d.onMessageDeleteBulk,
+	} {
+		d.session.AddHandler(h)
+	}
 }
 
 //func (d *Discord) handleTaskQueue() {
