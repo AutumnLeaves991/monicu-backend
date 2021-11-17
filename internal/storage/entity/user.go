@@ -18,6 +18,16 @@ func NewUserFromSnowflakeID(id string) *User {
 	return NewUser(0, mustParseSnowflake(id))
 }
 
+func FindUser(ctx context.Context, tx pgx.Tx, u *User) error {
+	return query(
+		ctx,
+		tx,
+		`select id from "user" where discord_id = $1`,
+		[]interface{}{u.DiscordID},
+		[]interface{}{&u.ID},
+	)
+}
+
 func FindOrCreateUser(ctx context.Context, tx pgx.Tx, u *User) error {
 	return query(
 		ctx,

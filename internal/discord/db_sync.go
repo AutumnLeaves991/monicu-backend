@@ -9,12 +9,6 @@ import (
 )
 
 func (d *Discord) maybeCreatePost(m *discordgo.Message) {
-	if len(m.Attachments) == 0 && len(m.Embeds) == 0 {
-		d.logger.Sugar().Debugf("Scheduled attachmentless/embedless message %s for possible embed addition edit.", m.ID)
-		d.awaitEmbedEdit(m)
-		return
-	}
-
 	eg := entity.NewGuildFromSnowflakeID(m.GuildID)
 	if !d.config.guilds.Contains(eg.DiscordID) {
 		d.logger.Sugar().Debugf("Ignoring message %s from ignored guild %s.", m.ID, m.GuildID)
@@ -24,6 +18,12 @@ func (d *Discord) maybeCreatePost(m *discordgo.Message) {
 	ec := entity.NewChannelFromSnowflakeID(m.ChannelID, 0)
 	if !d.config.chans.Contains(ec.DiscordID) {
 		d.logger.Sugar().Debugf("Ignoring message %s from ignored channel %s.", m.ID, m.ChannelID)
+		return
+	}
+
+	if len(m.Attachments) == 0 && len(m.Embeds) == 0 {
+		d.logger.Sugar().Debugf("Scheduled attachmentless/embedless message %s for possible embed addition edit.", m.ID)
+		d.awaitEmbedEdit(m)
 		return
 	}
 
@@ -117,4 +117,150 @@ func (d *Discord) awaitEmbedEdit(m *discordgo.Message) {
 			d.logger.Sugar().Debugf("Embed edit await timer for message %s has expired (10 sec.)", m.ID)
 		}
 	}()
+}
+
+func (d *Discord) maybeAddReaction(r *discordgo.MessageReaction) {
+	eg := entity.NewGuildFromSnowflakeID(r.GuildID)
+	if !d.config.guilds.Contains(eg.DiscordID) {
+		d.logger.Sugar().Debugf("Ignoring message %s from ignored guild %s.", r.MessageID, r.GuildID)
+		return
+	}
+
+	ec := entity.NewChannelFromSnowflakeID(r.ChannelID, 0)
+	if !d.config.chans.Contains(ec.DiscordID) {
+		d.logger.Sugar().Debugf("Ignoring message %s from ignored channel %s.", r.MessageID, r.ChannelID)
+		return
+	}
+
+	eu := entity.NewUserFromSnowflakeID(r.UserID)
+	ep := entity.NewPostFromSnowflakeID(r.MessageID, 0, 0, "")
+
+	em := entity.NewEmojiFromDiscord(&r.Emoji)
+	er := entity.NewReaction(0, 0, 0)
+
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+		d.logger.Sugar().Debugf("Finding guild ID %s.", r.GuildID)
+		if err := entity.FindGuild(d.ctx, tx, eg); err != nil {
+			return err
+		}
+
+		d.logger.Sugar().Debugf("Creating user ID %s.", r.UserID)
+		if err := entity.FindOrCreateUser(d.ctx, tx, eu); err != nil {
+			return err
+		}
+
+		d.logger.Sugar().Debugf("Finding post ID %s.", r.MessageID)
+		if err := entity.FindPost(d.ctx, tx, ep); err != nil {
+			return err
+		} else if ep.ID == 0 {
+			d.logger.Sugar().Debugf("Ignoring untracked post ID %s.", r.MessageID)
+			return nil
+		}
+
+		d.logger.Sugar().Debugf("Finding emoji %s.", r.Emoji.APIName())
+		if err := entity.FindOrCreateEmoji(d.ctx, tx, em); err != nil {
+			return err
+		}
+
+		d.logger.Sugar().Debugf("Finding reaction for emoji %s.", r.Emoji.APIName())
+		er.PostID, er.EmojiID = ep.ID, em.ID
+		if err := entity.FindOrCreateReaction(d.ctx, tx, er); err != nil {
+			return err
+		}
+
+		d.logger.Sugar().Debugf("Creating reaction from user %s with emoji %s.", r.UserID, r.Emoji.APIName())
+		if err := entity.CreateUserReaction(d.ctx, tx, entity.NewUserReaction(0, er.ID, eu.ID)); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		d.logger.Sugar().Errorf("Failed to complete reaction creation transaction: %s.", err)
+	} else {
+		d.logger.Sugar().Infof("Finished creating reaction for message %s.", r.MessageID)
+	}
+}
+
+func (d *Discord) maybeRemoveReaction(r *discordgo.MessageReaction) {
+	eu := entity.NewUserFromSnowflakeID(r.UserID)
+	ep := entity.NewPostFromSnowflakeID(r.MessageID, 0, 0, "")
+
+	em := entity.NewEmojiFromDiscord(&r.Emoji)
+	er := entity.NewReaction(0, 0, 0)
+
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+		d.logger.Sugar().Debugf("Finding post ID %s.", r.MessageID)
+		if err := entity.FindPost(d.ctx, tx, ep); err != nil {
+			return err
+		} else if ep.ID == 0 {
+			d.logger.Sugar().Debugf("Ignoring reaction removal from post %s that is not in the database.", r.MessageID)
+			return nil
+		}
+
+		d.logger.Sugar().Debugf("Finding user ID %s.", r.UserID)
+		if err := entity.FindUser(d.ctx, tx, eu); err != nil {
+			return err
+		} else if eu.ID == 0 {
+			d.logger.Sugar().Debugf("There is no user with ID %s.", r.UserID)
+			return nil
+		}
+
+		d.logger.Sugar().Debugf("Finding emoji %s.", r.Emoji.APIName())
+		if err := entity.FindEmoji(d.ctx, tx, em); err != nil {
+			return err
+		} else if eu.ID == 0 {
+			d.logger.Sugar().Debugf("There is no emoji %s.", r.Emoji.APIName())
+			return nil
+		}
+
+		d.logger.Sugar().Debugf("Finding reaction for emoji %s.", r.Emoji.APIName())
+		er.PostID, er.EmojiID = ep.ID, em.ID
+		if err := entity.FindReaction(d.ctx, tx, er); err != nil {
+			return err
+		} else if eu.ID == 0 {
+			d.logger.Sugar().Debugf("There is no reaction for emoji %s.", r.Emoji.APIName())
+			return nil
+		}
+
+		d.logger.Sugar().Debugf("Deleting reaction from user %s with emoji %s.", r.UserID, r.Emoji.APIName())
+		if ok, err := entity.DeleteUserReaction(d.ctx, tx, entity.NewUserReaction(0, er.ID, eu.ID)); err != nil {
+			return err
+		} else if !ok {
+			d.logger.Sugar().Debugf("There is no reaction from user %s with emoji %s.", r.UserID, r.Emoji.APIName())
+		}
+
+		return nil
+	}); err != nil {
+		d.logger.Sugar().Errorf("Failed to complete reaction creation transaction: %s.", err)
+	} else {
+		d.logger.Sugar().Infof("Finished deleting reaction for message %s.", r.MessageID)
+	}
+}
+
+func (d *Discord) maybeRemoveAllReactions(r *discordgo.MessageReaction) {
+	ep := entity.NewPostFromSnowflakeID(r.MessageID, 0, 0, "")
+
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+		d.logger.Sugar().Debugf("Finding post ID %s.", r.MessageID)
+		if err := entity.FindPost(d.ctx, tx, ep); err != nil {
+			return err
+		} else if ep.ID == 0 {
+			d.logger.Sugar().Debugf("Ignoring reaction removal from post %s that is not in the database.", r.MessageID)
+			return nil
+		}
+
+		d.logger.Sugar().Debugf("Finding reaction for emoji %s.", r.Emoji.APIName())
+		if /*ok*/ _, err := entity.DeleteAllReactions(d.ctx, tx, ep); err != nil {
+			return err
+		} /*else if !ok {
+			d.logger.Sugar().Debugf("There were no reactions for post %s.", r.MessageID)
+			return nil
+		}*/
+
+		return nil
+	}); err != nil {
+		d.logger.Sugar().Errorf("Failed to complete reaction deletion transaction: %s.", err)
+	} else {
+		d.logger.Sugar().Infof("Finished deleting reactions for message %s.", r.MessageID)
+	}
 }

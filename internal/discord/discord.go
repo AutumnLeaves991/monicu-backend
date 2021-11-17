@@ -57,6 +57,9 @@ func (d *Discord) addHandlers() {
 		d.onMessageCreate,
 		d.onMessageDelete,
 		d.onMessageDeleteBulk,
+		d.onMessageReactionAdd,
+		d.onMessageReactionRemove,
+		d.onMessageReactionRemoveAll,
 	} {
 		d.session.AddHandler(h)
 	}

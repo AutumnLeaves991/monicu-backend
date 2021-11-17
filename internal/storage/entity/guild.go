@@ -27,3 +27,7 @@ func FindOrCreateGuild(ctx context.Context, tx pgx.Tx, g *Guild) error {
 		[]interface{}{&g.ID},
 	)
 }
+
+func FindGuild(ctx context.Context, tx pgx.Tx, g *Guild) error {
+	return query(ctx, tx, `select id from guild where discord_id = $1`, []interface{}{g.DiscordID}, []interface{}{&g.ID})
+}

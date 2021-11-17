@@ -35,3 +35,15 @@ func (d *Discord) onMessageDeleteBulk(_ *discordgo.Session, e *discordgo.Message
 		d.maybeDeletePost(&discordgo.Message{ID: m})
 	}
 }
+
+func (d *Discord) onMessageReactionAdd(_ *discordgo.Session, e *discordgo.MessageReactionAdd) {
+	d.maybeAddReaction(e.MessageReaction)
+}
+
+func (d *Discord) onMessageReactionRemove(_ *discordgo.Session, e *discordgo.MessageReactionRemove) {
+	d.maybeRemoveReaction(e.MessageReaction)
+}
+
+func (d *Discord) onMessageReactionRemoveAll(_ *discordgo.Session, e *discordgo.MessageReactionRemoveAll) {
+	d.maybeRemoveAllReactions(e.MessageReaction)
+}

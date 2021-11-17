@@ -24,6 +24,22 @@ func NewEmojiFromDiscord(em *discordgo.Emoji) *Emoji {
 	}
 }
 
+func FindEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
+	var sql string
+	var args []interface{}
+
+	if em.DiscordID.Valid {
+		sql = `select id from emoji where discord_id = $1`
+		args = []interface{}{em.DiscordID}
+	} else {
+		sql = `select id from emoji where name = $1`
+		args = []interface{}{em.Name}
+	}
+
+	return query(ctx, tx, sql, args, []interface{}{&em.ID})
+}
+
+
 func FindOrCreateEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
 	var sql string
 	var args []interface{}

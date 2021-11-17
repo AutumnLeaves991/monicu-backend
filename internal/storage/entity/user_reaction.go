@@ -25,3 +25,12 @@ func CreateUserReaction(ctx context.Context, tx pgx.Tx, ur *UserReaction) error 
 		[]interface{}{&ur.ID},
 	)
 }
+
+func DeleteUserReaction(ctx context.Context, tx pgx.Tx, ur *UserReaction) (bool, error) {
+	return queryDeletion(
+		ctx,
+		tx,
+		`delete from user_reaction where reaction_id = $1 and user_id = $2`,
+		[]interface{}{ur.ReactionID, ur.UserID},
+	)
+}

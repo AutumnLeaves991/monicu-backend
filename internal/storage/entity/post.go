@@ -31,6 +31,16 @@ func CreatePost(ctx context.Context, tx pgx.Tx, p *Post) error {
 	)
 }
 
+func FindPost(ctx context.Context, tx pgx.Tx, p *Post) error {
+	return query(
+		ctx,
+		tx,
+		`select id, channel_id, user_id, message from post where discord_id = $1`,
+		[]interface{}{p.DiscordID},
+		[]interface{}{&p.ID, &p.ChannelID, &p.UserID, &p.Message},
+	)
+}
+
 func DeletePost(ctx context.Context, tx pgx.Tx, p *Post) (bool, error) {
 	return queryDeletion(
 		ctx,
