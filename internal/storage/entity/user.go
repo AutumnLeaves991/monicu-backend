@@ -2,9 +2,7 @@ package entity
 
 import (
 	"context"
-	"strconv"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/jackc/pgx/v4"
 )
 
@@ -16,12 +14,8 @@ func NewUser(ID ID, discordID Snowflake) *User {
 	return &User{IdentifiableDiscordEntity{IdentifiableEntity{ID}, discordID}}
 }
 
-func NewUserFromDiscord(u *discordgo.User) (*User, error) {
-	discordID, err := strconv.ParseUint(u.ID, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	return NewUser(0, discordID), nil
+func NewUserFromSnowflakeID(id string) *User {
+	return NewUser(0, mustParseSnowflake(id))
 }
 
 func FindOrCreateUser(ctx context.Context, tx pgx.Tx, u *User) error {

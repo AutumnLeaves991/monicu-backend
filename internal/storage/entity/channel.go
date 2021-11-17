@@ -15,6 +15,10 @@ func NewChannel(ID ID, discordID Snowflake, guildID Ref) *Channel {
 	return &Channel{IdentifiableDiscordEntity{IdentifiableEntity{ID}, discordID}, guildID}
 }
 
+func NewChannelFromSnowflakeID(id string, guildID Ref) *Channel {
+	return NewChannel(0, mustParseSnowflake(id), guildID)
+}
+
 func FindOrCreateChannel(ctx context.Context, tx pgx.Tx, ch *Channel) error {
 	return query(
 		ctx,

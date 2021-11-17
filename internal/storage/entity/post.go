@@ -17,6 +17,10 @@ func NewPost(ID ID, discordID Snowflake, channelID Ref, userID Ref, message stri
 	return &Post{IdentifiableDiscordEntity{IdentifiableEntity{ID}, discordID}, channelID, userID, message}
 }
 
+func NewPostFromSnowflakeID(id string, channelID Ref, userID Ref, message string) *Post {
+	return NewPost(0, mustParseSnowflake(id), channelID, userID, message)
+}
+
 func CreatePost(ctx context.Context, tx pgx.Tx, p *Post) error {
 	return query(
 		ctx,

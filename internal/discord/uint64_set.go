@@ -1,4 +1,4 @@
-package util
+package discord
 
 type Uint64Set map[uint64]struct{}
 

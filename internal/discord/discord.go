@@ -8,19 +8,18 @@ import (
 	"github.com/reddec/go-queue"
 	"go.uber.org/zap"
 	"pkg.mon.icu/monicu/internal/storage"
-	"pkg.mon.icu/monicu/internal/util"
 )
 
 type Config struct {
-	guilds       util.Uint64Set
-	chans        util.Uint64Set
+	guilds       Uint64Set
+	chans        Uint64Set
 	ignoreRegexp *regexp.Regexp
 }
 
 func NewConfig(guilds, channels []uint64, ignoreRegexp *regexp.Regexp) *Config {
 	return &Config{
-		guilds:       util.NewUint64Set(guilds),
-		chans:        util.NewUint64Set(channels),
+		guilds:       NewUint64Set(guilds),
+		chans:        NewUint64Set(channels),
 		ignoreRegexp: ignoreRegexp,
 	}
 }

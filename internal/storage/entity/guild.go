@@ -14,6 +14,10 @@ func NewGuild(ID ID, discordID Snowflake) *Guild {
 	return &Guild{IdentifiableDiscordEntity{IdentifiableEntity{ID}, discordID}}
 }
 
+func NewGuildFromSnowflakeID(id string) *Guild {
+	return NewGuild(0, mustParseSnowflake(id))
+}
+
 func FindOrCreateGuild(ctx context.Context, tx pgx.Tx, g *Guild) error {
 	return query(
 		ctx,
