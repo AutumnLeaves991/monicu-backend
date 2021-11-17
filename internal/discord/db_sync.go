@@ -1,6 +1,8 @@
 package discord
 
 import (
+	"time"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/jackc/pgx/v4"
 	"pkg.mon.icu/monicu/internal/storage/entity"
@@ -8,7 +10,8 @@ import (
 
 func (d *Discord) maybeCreatePost(m *discordgo.Message) {
 	if len(m.Attachments) == 0 && len(m.Embeds) == 0 {
-		d.logger.Sugar().Debugf("Ignoring attachmentless and embedless message %s.", m.ID)
+		d.logger.Sugar().Debugf("Scheduled attachmentless/embedless message %s for possible embed addition edit.", m.ID)
+		d.awaitEmbedEdit(m)
 		return
 	}
 
@@ -99,4 +102,19 @@ func (d *Discord) maybeDeletePost(m *discordgo.Message) {
 	}); err != nil {
 		d.logger.Sugar().Errorf("Failed to delete post %s: %s", m.ID, err)
 	}
+}
+
+func (d *Discord) awaitEmbedEdit(m *discordgo.Message) {
+	ee := &embedEdit{m, time.NewTimer(10 * time.Second), make(chan struct{})}
+	d.embedEditSched[m.ID] = ee
+	go func() {
+		select {
+		case <-ee.stopChan:
+		case <-d.ctx.Done():
+		case <-ee.timer.C:
+			delete(d.embedEditSched, m.ID)
+			ee.timer.Stop()
+			d.logger.Sugar().Debugf("Embed edit await timer for message %s has expired (10 sec.)", m.ID)
+		}
+	}()
 }

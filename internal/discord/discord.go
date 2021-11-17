@@ -3,6 +3,7 @@ package discord
 import (
 	"context"
 	"regexp"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/reddec/go-queue"
@@ -24,13 +25,20 @@ func NewConfig(guilds, channels []uint64, ignoreRegexp *regexp.Regexp) *Config {
 	}
 }
 
+type embedEdit struct {
+	message  *discordgo.Message
+	timer    *time.Timer
+	stopChan chan struct{}
+}
+
 type Discord struct {
-	ctx     context.Context
-	logger  *zap.Logger
-	session *discordgo.Session
-	config  *Config
-	storage *storage.Storage
-	queue   *queue.BlockingQueue
+	ctx            context.Context
+	logger         *zap.Logger
+	session        *discordgo.Session
+	config         *Config
+	storage        *storage.Storage
+	queue          *queue.BlockingQueue
+	embedEditSched map[string]*embedEdit
 }
 
 func NewDiscord(ctx context.Context, log *zap.Logger, auth string, config *Config, store *storage.Storage) (*Discord, error) {
@@ -38,13 +46,14 @@ func NewDiscord(ctx context.Context, log *zap.Logger, auth string, config *Confi
 	if err != nil {
 		return nil, err
 	}
-	d := &Discord{ctx: ctx, logger: log, session: s, config: config, storage: store, queue: queue.New()}
+	d := &Discord{ctx: ctx, logger: log, session: s, config: config, storage: store, queue: queue.New(), embedEditSched: make(map[string]*embedEdit)}
 	d.addHandlers()
 	return d, nil
 }
 
 func (d *Discord) addHandlers() {
 	d.session.AddHandlerOnce(d.onReady)
+	d.session.AddHandler(d.onMessageUpdate)
 	d.session.AddHandler(d.onMessageCreate)
 	d.session.AddHandler(d.onMessageDelete)
 }
