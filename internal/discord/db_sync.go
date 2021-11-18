@@ -21,6 +21,11 @@ func (d *Discord) maybeCreatePost(m *discordgo.Message) {
 		return
 	}
 
+	if d.config.ignoreRegexp.MatchString(m.Content) {
+		d.logger.Sugar().Debugf("Ignoring message %s because it matches ignore regexp.", m.ID)
+		return
+	}
+
 	if len(m.Attachments) == 0 && len(m.Embeds) == 0 {
 		d.logger.Sugar().Debugf("Scheduled attachmentless/embedless message %s for possible embed addition edit.", m.ID)
 		d.awaitEmbedEdit(m)
@@ -250,9 +255,11 @@ func (d *Discord) maybeRemoveAllReactions(r *discordgo.MessageReaction) {
 		}
 
 		d.logger.Sugar().Debugf("Finding reaction for emoji %s.", r.Emoji.APIName())
-		if /*ok*/ _, err := entity.DeleteAllReactions(d.ctx, tx, ep); err != nil {
+		if ok, err := entity.DeleteAllReactions(d.ctx, tx, ep); err != nil {
 			return err
-		} /*else if !ok {
+		} else if ok {
+			d.logger.Sugar().Infof("Deleted all reactions for post %s.", r.MessageID)
+		}/*else {
 			d.logger.Sugar().Debugf("There were no reactions for post %s.", r.MessageID)
 			return nil
 		}*/

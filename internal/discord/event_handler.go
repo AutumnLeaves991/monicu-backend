@@ -10,7 +10,7 @@ func (d *Discord) onReady(_ *discordgo.Session, e *discordgo.Ready) {
 
 func (d *Discord) onMessageUpdate(_ *discordgo.Session, e *discordgo.MessageUpdate) {
 	if ee, exists := d.embedEditSched[e.ID]; exists {
-		if len(e.Embeds) != len(ee.message.Embeds) {
+		if len(e.Embeds) > len(ee.message.Embeds) {
 			d.logger.Sugar().Debugf("Received embed addition update event for message %s.", ee.message.ID)
 			ee.message.Embeds = e.Embeds
 			d.maybeCreatePost(ee.message)
