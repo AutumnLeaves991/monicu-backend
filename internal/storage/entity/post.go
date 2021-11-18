@@ -49,3 +49,18 @@ func DeletePost(ctx context.Context, tx pgx.Tx, p *Post) (bool, error) {
 		[]interface{}{p.DiscordID},
 	)
 }
+
+func IsChannelEmpty(ctx context.Context, tx pgx.Tx, c *Channel) (bool, error) {
+	var i int
+	if err := query(
+		ctx,
+		tx,
+		`select 1 from post where channel_id = $1 limit 1`,
+		[]interface{}{c.ID},
+		[]interface{}{&i},
+	); err != nil {
+		return false, err
+	} else {
+		return i == 0, nil
+	}
+}

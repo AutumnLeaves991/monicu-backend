@@ -92,7 +92,7 @@ create table if not exists emoji
     name       varchar(32) not null
 );
 
-create index if not exists emoji_discord_id_uindex
+create unique index if not exists emoji_discord_id_uindex
     on emoji (discord_id);
 
 create unique index if not exists emoji_id_uindex
@@ -116,9 +116,6 @@ create table if not exists reaction
             references emoji
             on update cascade on delete cascade
 );
-
-create unique index if not exists reaction_emoji_id_uindex
-    on reaction (emoji_id);
 
 create unique index if not exists reaction_id_uindex
     on reaction (id);
