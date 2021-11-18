@@ -31,11 +31,12 @@ type embedEdit struct {
 }
 
 type Discord struct {
-	ctx     context.Context
-	logger  *zap.Logger
-	session *discordgo.Session
-	config  *Config
-	storage *storage.Storage
+	ctx           context.Context
+	logger        *zap.Logger
+	session       *discordgo.Session
+	handlerRemFns []func()
+	config        *Config
+	storage       *storage.Storage
 	//queue          *queue.BlockingQueue
 	embedEditSched map[string]*embedEdit
 }
@@ -45,13 +46,20 @@ func NewDiscord(ctx context.Context, log *zap.Logger, auth string, config *Confi
 	if err != nil {
 		return nil, err
 	}
-	d := &Discord{ctx: ctx, logger: log, session: s, config: config, storage: store /*queue: queue.New(),*/, embedEditSched: make(map[string]*embedEdit)}
-	d.addHandlers()
+	d := &Discord{
+		ctx:            ctx,
+		logger:         log,
+		session:        s,
+		handlerRemFns:  make([]func(), 0, 8),
+		config:         config,
+		storage:        store, /*queue: queue.New(),*/
+		embedEditSched: make(map[string]*embedEdit),
+	}
 	return d, nil
 }
 
 func (d *Discord) addHandlers() {
-	d.session.AddHandlerOnce(d.onReady)
+	d.handlerRemFns = append(d.handlerRemFns, d.session.AddHandlerOnce(d.onReady))
 	for _, h := range []interface{}{
 		d.onMessageUpdate,
 		d.onMessageCreate,
@@ -61,7 +69,13 @@ func (d *Discord) addHandlers() {
 		d.onMessageReactionRemove,
 		d.onMessageReactionRemoveAll,
 	} {
-		d.session.AddHandler(h)
+		d.handlerRemFns = append(d.handlerRemFns, d.session.AddHandler(h))
+	}
+}
+
+func (d *Discord) removeHandlers() {
+	for _, hFn := range d.handlerRemFns {
+		hFn()
 	}
 }
 
@@ -78,10 +92,12 @@ func (d *Discord) addHandlers() {
 
 func (d *Discord) Connect() error {
 	//go d.handleTaskQueue()
+	d.addHandlers()
 	return d.session.Open()
 }
 
 func (d *Discord) Close() error {
 	//_ = d.queue.Close()
+	d.removeHandlers()
 	return d.session.Close()
 }

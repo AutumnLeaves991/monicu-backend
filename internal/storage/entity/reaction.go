@@ -54,4 +54,3 @@ func FindOrCreateReaction(ctx context.Context, tx pgx.Tx, r *Reaction) error {
 		[]interface{}{&r.ID},
 	)
 }
-

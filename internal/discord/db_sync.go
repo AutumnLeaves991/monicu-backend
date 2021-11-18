@@ -63,7 +63,7 @@ func (d *Discord) maybeSyncChannels() {
 					d.maybeCreatePostWithReactions(m, false)
 				}
 
-				beforeID = msg[len(msg) - 1].ID
+				beforeID = msg[len(msg)-1].ID
 
 				if len(msg) < 100 {
 					break
