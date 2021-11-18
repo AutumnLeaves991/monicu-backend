@@ -3,11 +3,12 @@ package discord
 import (
 	"context"
 	"regexp"
-	"time"
+	"strconv"
 
 	"github.com/bwmarrin/discordgo"
 	"go.uber.org/zap"
 	"pkg.mon.icu/monicu/internal/storage"
+	"pkg.mon.icu/monicu/internal/storage/entity"
 )
 
 type Config struct {
@@ -24,21 +25,14 @@ func NewConfig(guilds, channels []uint64, ignoreRegexp *regexp.Regexp) *Config {
 	}
 }
 
-type embedEdit struct {
-	message  *discordgo.Message
-	timer    *time.Timer
-	stopChan chan struct{}
-}
-
 type Discord struct {
-	ctx           context.Context
-	logger        *zap.Logger
-	session       *discordgo.Session
-	handlerRemFns []func()
-	config        *Config
-	storage       *storage.Storage
-	//queue          *queue.BlockingQueue
-	embedEditSched map[string]*embedEdit
+	ctx               context.Context
+	logger            *zap.Logger
+	session           *discordgo.Session
+	handlerRemFns     []func()
+	config            *Config
+	storage           *storage.Storage
+	guildChannelCache map[uint64]uint64
 }
 
 func NewDiscord(ctx context.Context, log *zap.Logger, auth string, config *Config, store *storage.Storage) (*Discord, error) {
@@ -47,13 +41,13 @@ func NewDiscord(ctx context.Context, log *zap.Logger, auth string, config *Confi
 		return nil, err
 	}
 	d := &Discord{
-		ctx:            ctx,
-		logger:         log,
-		session:        s,
-		handlerRemFns:  make([]func(), 0, 8),
-		config:         config,
-		storage:        store, /*queue: queue.New(),*/
-		embedEditSched: make(map[string]*embedEdit),
+		ctx:               ctx,
+		logger:            log,
+		session:           s,
+		handlerRemFns:     make([]func(), 0, 8),
+		config:            config,
+		storage:           store, /*queue: queue.New(),*/
+		guildChannelCache: make(map[uint64]uint64),
 	}
 	return d, nil
 }
@@ -79,25 +73,24 @@ func (d *Discord) removeHandlers() {
 	}
 }
 
-//func (d *Discord) handleTaskQueue() {
-//	for {
-//		task, ok := d.queue.Pop()
-//		if !ok {
-//			break
-//		}
-//
-//		task.(func())() // invoke
-//	}
-//}
+func (d *Discord) buildChannelGuildCache() {
+	for chanID := range d.config.chans {
+		chann, err := d.session.Channel(strconv.FormatUint(chanID, 10))
+		if err != nil {
+			d.logger.Sugar().Errorf("Failed to retrieve channel %d.", chanID)
+			return
+		}
+
+		d.guildChannelCache[chanID] = entity.MustParseSnowflake(chann.GuildID)
+	}
+}
 
 func (d *Discord) Connect() error {
-	//go d.handleTaskQueue()
 	d.addHandlers()
 	return d.session.Open()
 }
 
 func (d *Discord) Close() error {
-	//_ = d.queue.Close()
 	d.removeHandlers()
 	return d.session.Close()
 }

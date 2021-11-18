@@ -18,7 +18,7 @@ func NewPost(ID ID, discordID Snowflake, channelID Ref, userID Ref, message stri
 }
 
 func NewPostFromSnowflakeID(id string, channelID Ref, userID Ref, message string) *Post {
-	return NewPost(0, mustParseSnowflake(id), channelID, userID, message)
+	return NewPost(0, MustParseSnowflake(id), channelID, userID, message)
 }
 
 func CreatePost(ctx context.Context, tx pgx.Tx, p *Post) error {

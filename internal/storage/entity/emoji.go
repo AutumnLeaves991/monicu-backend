@@ -20,7 +20,7 @@ func NewEmojiFromDiscord(em *discordgo.Emoji) *Emoji {
 	if em.ID == "" {
 		return NewEmoji(0, NullableSnowflake{}, em.Name)
 	} else {
-		return NewEmoji(0, NullableSnowflake{Int64: int64(mustParseSnowflake(em.ID)), Valid: true}, em.Name)
+		return NewEmoji(0, NullableSnowflake{Int64: int64(MustParseSnowflake(em.ID)), Valid: true}, em.Name)
 	}
 }
 

@@ -2,7 +2,6 @@ package discord
 
 import (
 	"strconv"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jackc/pgx/v4"
@@ -60,7 +59,7 @@ func (d *Discord) maybeSyncChannels() {
 
 				for _, m := range msg {
 					m.GuildID = chanObj.GuildID
-					d.maybeCreatePost(m, false)
+					d.maybeCreatePost(m)
 				}
 
 				beforeID = msg[len(msg)-1].ID
@@ -73,7 +72,7 @@ func (d *Discord) maybeSyncChannels() {
 	}
 }
 
-func (d *Discord) maybeCreatePost(m *discordgo.Message, awaitEmbed bool) {
+func (d *Discord) maybeCreatePost(m *discordgo.Message) {
 	eg := entity.NewGuildFromSnowflakeID(m.GuildID)
 	if !d.config.guilds.Contains(eg.DiscordID) {
 		d.logger.Sugar().Debugf("Ignoring message %s from ignored guild %s.", m.ID, m.GuildID)
@@ -92,12 +91,7 @@ func (d *Discord) maybeCreatePost(m *discordgo.Message, awaitEmbed bool) {
 	}
 
 	if len(m.Attachments) == 0 && len(m.Embeds) == 0 {
-		if awaitEmbed {
-			d.logger.Sugar().Debugf("Scheduled attachmentless/embedless message %s for possible embed addition edit.", m.ID)
-			d.awaitEmbedEdit(m)
-		} else {
-			d.logger.Sugar().Debugf("Skipping attachmentless/embedless message %s.", m.ID)
-		}
+		d.logger.Sugar().Debugf("Skipping attachmentless/embedless message %s.", m.ID)
 		return
 	}
 
@@ -224,19 +218,54 @@ func (d *Discord) maybeDeletePost(m *discordgo.Message) {
 	}
 }
 
-func (d *Discord) awaitEmbedEdit(m *discordgo.Message) {
-	ee := &embedEdit{m, time.NewTimer(10 * time.Second), make(chan struct{})}
-	d.embedEditSched[m.ID] = ee
-	go func() {
-		select {
-		case <-ee.stopChan:
-		case <-d.ctx.Done():
-		case <-ee.timer.C:
-			delete(d.embedEditSched, m.ID)
-			ee.timer.Stop()
-			d.logger.Sugar().Debugf("Embed edit await timer for message %s has expired (10 sec.)", m.ID)
+func (d *Discord) maybeUpdatePost(m *discordgo.Message) {
+	eg := entity.NewGuildFromSnowflakeID(m.GuildID)
+	if !d.config.guilds.Contains(eg.DiscordID) {
+		d.logger.Sugar().Debugf("Ignoring message %s from ignored guild %s.", m.ID, m.GuildID)
+		return
+	}
+
+	ec := entity.NewChannelFromSnowflakeID(m.ChannelID, 0)
+	if !d.config.chans.Contains(ec.DiscordID) {
+		d.logger.Sugar().Debugf("Ignoring message %s from ignored channel %s.", m.ID, m.ChannelID)
+		return
+	}
+
+	if d.config.ignoreRegexp.MatchString(m.Content) {
+		d.logger.Sugar().Debugf("Ignoring message %s because it matches ignore regexp.", m.ID)
+		return
+	}
+
+	if len(m.Attachments) == 0 && len(m.Embeds) == 0 {
+		d.logger.Sugar().Debugf("Skipping attachmentless/embedless message %s.", m.ID)
+		return
+	}
+
+	ep := entity.NewPostFromSnowflakeID(m.ID, 0, 0, m.Content)
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+		if err := entity.FindPost(d.ctx, tx, ep); err != nil {
+			return err
+		} else if ep.ID > 0 {
+			// found
+			// todo as editing involves potential embed/attachment removal, need to make
+			// todo a routine that will 1) wipe all existing images attached 2) rescan attachements and embeds
 		}
-	}()
+
+		return nil
+	}); err != nil {
+		d.logger.Sugar().Errorf("Failed to retrieve post %s: %s.", m.ID, err)
+	} else if ep.ID == 0 {
+		// not found, create it
+		om, err := d.session.ChannelMessage(m.ChannelID, m.ID)
+		if err != nil {
+			d.logger.Sugar().Errorf("Failed to retrieve post %s: %s.", m.ID, err)
+			return
+		}
+
+		m.Author = om.Author
+		m.GuildID = strconv.FormatUint(d.guildChannelCache[entity.MustParseSnowflake(m.ChannelID)], 10)
+		d.maybeCreatePost(m)
+	}
 }
 
 func (d *Discord) maybeAddReaction(r *discordgo.MessageReaction) {

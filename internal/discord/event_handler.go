@@ -6,27 +6,19 @@ import (
 
 func (d *Discord) onReady(_ *discordgo.Session, e *discordgo.Ready) {
 	d.logger.Sugar().Infof("Logged in Discord API as %s.", e.User)
+	d.buildChannelGuildCache()
 	d.maybeSyncChannels()
 }
 
 func (d *Discord) onMessageUpdate(_ *discordgo.Session, e *discordgo.MessageUpdate) {
-	if ee, exists := d.embedEditSched[e.ID]; exists {
-		if len(e.Embeds) > len(ee.message.Embeds) || len(e.Attachments) > len(ee.message.Attachments) {
-			d.logger.Sugar().Debugf("Received embed addition update event for message %s.", ee.message.ID)
-			ee.message.Embeds = e.Embeds
-			d.maybeCreatePost(ee.message, false)
-		}
-
-		ee.timer.Stop()
-		ee.stopChan <- struct{}{}
-	}
+	d.maybeUpdatePost(e.Message)
 }
 
 func (d *Discord) onMessageCreate(_ *discordgo.Session, e *discordgo.MessageCreate) {
 	if e.GuildID == "" {
 		return
 	}
-	d.maybeCreatePost(e.Message, true)
+	d.maybeCreatePost(e.Message)
 }
 
 func (d *Discord) onMessageDelete(_ *discordgo.Session, e *discordgo.MessageDelete) {

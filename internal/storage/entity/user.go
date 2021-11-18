@@ -15,7 +15,7 @@ func NewUser(ID ID, discordID Snowflake) *User {
 }
 
 func NewUserFromSnowflakeID(id string) *User {
-	return NewUser(0, mustParseSnowflake(id))
+	return NewUser(0, MustParseSnowflake(id))
 }
 
 func FindUser(ctx context.Context, tx pgx.Tx, u *User) error {
