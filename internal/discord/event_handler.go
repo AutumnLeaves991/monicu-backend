@@ -5,7 +5,7 @@ import (
 )
 
 func (d *Discord) onReady(_ *discordgo.Session, e *discordgo.Ready) {
-	d.logger.Sugar().Infof("Logged in Discord API as %s.", e.User)
+	d.logger.Infof("Logged in Discord API as %s.", e.User)
 	d.buildChannelGuildCache()
 	d.maybeSyncChannels()
 }
@@ -26,7 +26,7 @@ func (d *Discord) onMessageDelete(_ *discordgo.Session, e *discordgo.MessageDele
 }
 
 func (d *Discord) onMessageDeleteBulk(_ *discordgo.Session, e *discordgo.MessageDeleteBulk) {
-	d.logger.Sugar().Debugf("Bulk-deleting posts in channel %s of guild %s.", e.ChannelID, e.GuildID)
+	d.logger.Debugf("Bulk-deleting posts in channel %s of guild %s.", e.ChannelID, e.GuildID)
 	for _, m := range e.Messages {
 		d.maybeDeletePost(&discordgo.Message{ID: m})
 	}

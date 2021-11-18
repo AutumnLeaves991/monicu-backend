@@ -27,7 +27,7 @@ func CreateUserReaction(ctx context.Context, tx pgx.Tx, ur *UserReaction) error 
 }
 
 func DeleteUserReaction(ctx context.Context, tx pgx.Tx, ur *UserReaction) (bool, error) {
-	return queryDeletion(
+	return queryUpdateDelete(
 		ctx,
 		tx,
 		`delete from user_reaction where reaction_id = $1 and user_id = $2`,

@@ -41,13 +41,27 @@ func FindPost(ctx context.Context, tx pgx.Tx, p *Post) error {
 	)
 }
 
+func UpdatePost(ctx context.Context, tx pgx.Tx, p *Post) (bool,error) {
+	return queryUpdateDelete(
+		ctx,
+		tx,
+		`update post set (channel_id, user_id, message) = ($2, $3, $4) where discord_id = $1`,
+		[]interface{}{p.DiscordID, p.ChannelID, p.UserID, p.Message},
+	)
+}
+
+
 func DeletePost(ctx context.Context, tx pgx.Tx, p *Post) (bool, error) {
-	return queryDeletion(
+	return queryUpdateDelete(
 		ctx,
 		tx,
 		`delete from post where discord_id = $1`,
 		[]interface{}{p.DiscordID},
 	)
+}
+
+func DeletePostImages(ctx context.Context, tx pgx.Tx, p *Post) (bool, error) {
+	return queryUpdateDelete(ctx, tx, `delete from image where post_id = $1`, []interface{}{p.ID})
 }
 
 func IsChannelEmpty(ctx context.Context, tx pgx.Tx, c *Channel) (bool, error) {

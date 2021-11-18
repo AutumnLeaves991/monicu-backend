@@ -11,11 +11,11 @@ import (
 
 type Storage struct {
 	ctx    context.Context
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 	pool   *pgxpool.Pool
 }
 
-func NewStorage(ctx context.Context, l *zap.Logger) *Storage {
+func NewStorage(ctx context.Context, l *zap.SugaredLogger) *Storage {
 	return &Storage{ctx: ctx, logger: l}
 }
 

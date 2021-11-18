@@ -19,7 +19,7 @@ type app struct {
 	cancel context.CancelFunc
 
 	logConf zap.Config
-	logger  *zap.Logger
+	logger  *zap.SugaredLogger
 
 	config *config.Config
 
@@ -27,7 +27,7 @@ type app struct {
 	discord *discord.Discord
 }
 
-func newApp(ctx context.Context, lcf zap.Config, log *zap.Logger) (*app, error) {
+func newApp(ctx context.Context, lcf zap.Config, log *zap.SugaredLogger) (*app, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	a := &app{ctx: ctx, cancel: cancel, logConf: lcf, logger: log}
 	var err error
@@ -61,7 +61,7 @@ func (a *app) Run() error {
 	defer func() {
 		a.logger.Debug("Closing PostgreSQL storage.")
 		if err := a.storage.Close(); err != nil {
-			a.logger.Sugar().Errorf("Couldn't close storage: %s.", err)
+			a.logger.Errorf("Couldn't close storage: %s.", err)
 		}
 		a.logger.Debug("Closed PostgreSQL storage.")
 	}()
@@ -74,7 +74,7 @@ func (a *app) Run() error {
 	defer func() {
 		a.logger.Debug("Closing connection with Discord API gateway.")
 		if err := a.discord.Close(); err != nil {
-			a.logger.Sugar().Errorf("Couldn't close Discord: %s.", err)
+			a.logger.Errorf("Couldn't close Discord: %s.", err)
 		}
 		a.logger.Debug("Closed connection with Discord API gateway.")
 	}()
@@ -98,7 +98,7 @@ func main() {
 	log, _ := lcf.Build()
 
 	log.Info("Initializing application.")
-	a, err := newApp(ctx, lcf, log)
+	a, err := newApp(ctx, lcf, log.Sugar())
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.Sugar().Fatalf("Couldn't initialize application: %s.", err)

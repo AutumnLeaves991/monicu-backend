@@ -27,7 +27,7 @@ func NewConfig(guilds, channels []uint64, ignoreRegexp *regexp.Regexp) *Config {
 
 type Discord struct {
 	ctx               context.Context
-	logger            *zap.Logger
+	logger            *zap.SugaredLogger
 	session           *discordgo.Session
 	handlerRemFns     []func()
 	config            *Config
@@ -35,7 +35,7 @@ type Discord struct {
 	guildChannelCache map[uint64]uint64
 }
 
-func NewDiscord(ctx context.Context, log *zap.Logger, auth string, config *Config, store *storage.Storage) (*Discord, error) {
+func NewDiscord(ctx context.Context, log *zap.SugaredLogger, auth string, config *Config, store *storage.Storage) (*Discord, error) {
 	s, err := discordgo.New(auth)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (d *Discord) buildChannelGuildCache() {
 	for chanID := range d.config.chans {
 		chann, err := d.session.Channel(strconv.FormatUint(chanID, 10))
 		if err != nil {
-			d.logger.Sugar().Errorf("Failed to retrieve channel %d.", chanID)
+			d.logger.Errorf("Failed to retrieve channel %d.", chanID)
 			return
 		}
 

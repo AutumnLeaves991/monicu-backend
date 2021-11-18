@@ -37,7 +37,7 @@ func FindReaction(ctx context.Context, tx pgx.Tx, r *Reaction) error {
 }
 
 func DeleteAllReactions(ctx context.Context, tx pgx.Tx, p *Post) (bool, error) {
-	return queryDeletion(
+	return queryUpdateDelete(
 		ctx,
 		tx,
 		`delete from reaction where post_id = $1`,
