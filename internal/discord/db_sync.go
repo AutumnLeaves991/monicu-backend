@@ -107,92 +107,10 @@ func (d *Discord) maybeCreatePost(m *discordgo.Message) {
 		return
 	}
 
-	eg := entity.NewGuildFromSnowflakeID(m.GuildID)
-	ec := entity.NewChannelFromSnowflakeID(m.ChannelID, 0)
-	eu := entity.NewUserFromSnowflakeID(m.Author.ID)
-	ep := entity.NewPostFromSnowflakeID(m.ID, 0, 0, m.Content)
-
-	d.logger.Debugf("Creating post for message %s.", m.ID)
-	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
-		d.logger.Debugf("Creating guild ID %s.", m.GuildID)
-		if err := entity.FindOrCreateGuild(d.ctx, tx, eg); err != nil {
-			return err
-		}
-
-		d.logger.Debugf("Creating channel ID %s.", m.ChannelID)
-		ec.GuildID = eg.ID
-		if err := entity.FindOrCreateChannel(d.ctx, tx, ec); err != nil {
-			return err
-		}
-
-		d.logger.Debugf("Creating user ID %s.", m.Author.ID)
-		if err := entity.FindOrCreateUser(d.ctx, tx, eu); err != nil {
-			return err
-		}
-
-		d.logger.Debugf("Creating post ID %s.", m.ID)
-		ep.ChannelID, ep.UserID = ec.ID, eu.ID
-		if err := entity.CreatePost(d.ctx, tx, ep); err != nil {
-			return err
-		}
-
-		if err := d.createPostAttachments(ep, m, tx); err != nil {
-			return err
-		}
-
-		for _, r := range m.Reactions {
-			em := entity.NewEmojiFromDiscord(r.Emoji)
-			d.logger.Debugf("Creating emoji %s.", r.Emoji.APIName())
-			if err := entity.FindOrCreateEmoji(d.ctx, tx, em); err != nil {
-				return err
-			}
-
-			er := entity.NewReaction(0, ep.ID, em.ID)
-			d.logger.Debugf("Creating reaction for emoji %s.", r.Emoji.APIName())
-			if err := entity.CreateReaction(d.ctx, tx, er); err != nil {
-				return err
-			}
-
-			var beforeID string
-			for {
-				re, err := d.session.MessageReactions(m.ChannelID, m.ID, r.Emoji.APIName(), 100, beforeID, "")
-				if err != nil {
-					return err
-				}
-
-				if len(re) == 0 {
-					break
-				}
-
-				for _, u := range re {
-					eru := entity.NewUserFromSnowflakeID(u.ID)
-					d.logger.Debugf("Creating user ID %s.", u.ID)
-					if err := entity.FindOrCreateUser(d.ctx, tx, eru); err != nil {
-						return err
-					}
-
-					eur := entity.NewUserReaction(0, er.ID, eru.ID)
-					d.logger.Debugf("Creating reaction for emoji %s.", r.Emoji.APIName())
-					if err := entity.CreateUserReaction(d.ctx, tx, eur); err != nil {
-						return err
-					}
-				}
-
-				beforeID = re[len(re)-1].ID
-
-				if len(re) < 100 {
-					break
-				}
-			}
-		}
-
-		return nil
-	}); err != nil {
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error { return d.createPostInDB(m, tx) }); err != nil {
 		if d.shouldLogError(err) {
 			d.logger.Errorf("Failed to complete post creation transaction: %s.", err)
 		}
-	} else {
-		d.logger.Infof("Finished creating post for message %s.", m.ID)
 	}
 }
 
@@ -210,6 +128,40 @@ func (d *Discord) maybeDeletePost(m *discordgo.Message) {
 	}); err != nil {
 		d.logger.Errorf("Failed to delete post %s: %s", m.ID, err)
 	}
+}
+
+func (d *Discord) createPostInDB(m *discordgo.Message, tx pgx.Tx) error {
+	eg := entity.NewGuildFromSnowflakeID(m.GuildID)
+	ec := entity.NewChannelFromSnowflakeID(m.ChannelID, 0)
+	eu := entity.NewUserFromSnowflakeID(m.Author.ID)
+	ep := entity.NewPostFromSnowflakeID(m.ID, 0, 0, m.Content)
+
+	if err := entity.FindOrCreateGuild(d.ctx, tx, eg); err != nil {
+		return err
+	}
+
+	ec.GuildID = eg.ID
+	if err := entity.FindOrCreateChannel(d.ctx, tx, ec); err != nil {
+		return err
+	}
+
+	if err := entity.FindOrCreateUser(d.ctx, tx, eu); err != nil {
+		return err
+	}
+
+	ep.ChannelID, ep.UserID = ec.ID, eu.ID
+	if err := entity.CreatePost(d.ctx, tx, ep); err != nil {
+		return err
+	}
+
+	if err := d.createPostAttachments(ep, m, tx); err != nil {
+		return err
+	}
+	if err := d.createPostReactions(ep, m, tx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (d *Discord) createPostAttachments(p *entity.Post, m *discordgo.Message, tx pgx.Tx) error {
@@ -242,6 +194,56 @@ func (d *Discord) createPostAttachments(p *entity.Post, m *discordgo.Message, tx
 	return nil
 }
 
+func (d *Discord) createPostReactions(p *entity.Post, m *discordgo.Message, tx pgx.Tx) error {
+	for _, r := range m.Reactions {
+		em := entity.NewEmojiFromDiscord(r.Emoji)
+		d.logger.Debugf("Creating emoji %s.", r.Emoji.APIName())
+		if err := entity.FindOrCreateEmoji(d.ctx, tx, em); err != nil {
+			return err
+		}
+
+		er := entity.NewReaction(0, p.ID, em.ID)
+		d.logger.Debugf("Creating reaction for emoji %s.", r.Emoji.APIName())
+		if err := entity.CreateReaction(d.ctx, tx, er); err != nil {
+			return err
+		}
+
+		var beforeID string
+		for {
+			re, err := d.session.MessageReactions(m.ChannelID, m.ID, r.Emoji.APIName(), 100, beforeID, "")
+			if err != nil {
+				return err
+			}
+
+			if len(re) == 0 {
+				break
+			}
+
+			for _, u := range re {
+				eru := entity.NewUserFromSnowflakeID(u.ID)
+				d.logger.Debugf("Creating user ID %s.", u.ID)
+				if err := entity.FindOrCreateUser(d.ctx, tx, eru); err != nil {
+					return err
+				}
+
+				eur := entity.NewUserReaction(0, er.ID, eru.ID)
+				d.logger.Debugf("Creating reaction for emoji %s.", r.Emoji.APIName())
+				if err := entity.CreateUserReaction(d.ctx, tx, eur); err != nil {
+					return err
+				}
+			}
+
+			beforeID = re[len(re)-1].ID
+
+			if len(re) < 100 {
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 func (d *Discord) maybeUpdatePost(m *discordgo.Message) {
 	ep := entity.NewPostFromSnowflakeID(m.ID, 0, 0, "")
 	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
@@ -253,19 +255,7 @@ func (d *Discord) maybeUpdatePost(m *discordgo.Message) {
 					return err
 				}
 			}
-
-			if _, err := entity.DeletePostImages(d.ctx, tx, ep); err != nil {
-				return err
-			}
-
-			if err := d.createPostAttachments(ep, m, tx); err != nil {
-				return err
-			}
-
-			ep.Message = m.Content
-			if _, err := entity.UpdatePost(d.ctx, tx, ep); err != nil {
-				return err
-			}
+			return d.updatePostInDB(ep, m, tx)
 		}
 
 		return nil
@@ -291,6 +281,23 @@ func (d *Discord) maybeUpdatePost(m *discordgo.Message) {
 	}
 }
 
+func (d *Discord) updatePostInDB(p *entity.Post, m *discordgo.Message, tx pgx.Tx) error {
+	if _, err := entity.DeletePostImages(d.ctx, tx, p); err != nil {
+		return err
+	}
+
+	if err := d.createPostAttachments(p, m, tx); err != nil {
+		return err
+	}
+
+	p.Message = m.Content
+	if _, err := entity.UpdatePost(d.ctx, tx, p); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (d *Discord) maybeAddReaction(r *discordgo.MessageReaction) {
 	eg := entity.NewGuildFromSnowflakeID(r.GuildID)
 	if !d.config.guilds.Contains(eg.DiscordID) {
@@ -314,6 +321,8 @@ func (d *Discord) maybeAddReaction(r *discordgo.MessageReaction) {
 		d.logger.Debugf("Finding guild ID %s.", r.GuildID)
 		if err := entity.FindGuild(d.ctx, tx, eg); err != nil {
 			return err
+		} else if eg.ID == 0 {
+			return nil
 		}
 
 		d.logger.Debugf("Creating user ID %s.", r.UserID)
