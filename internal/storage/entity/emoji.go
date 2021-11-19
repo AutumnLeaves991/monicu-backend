@@ -36,7 +36,7 @@ func FindEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
 		args = []interface{}{em.Name}
 	}
 
-	return query(ctx, tx, sql, args, []interface{}{&em.ID})
+	return query(ctx, tx, sql, args, []interface{}{&em.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }
 
 func FindOrCreateEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
@@ -51,5 +51,5 @@ func FindOrCreateEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
 		args = []interface{}{em.Name}
 	}
 
-	return query(ctx, tx, sql, args, []interface{}{&em.ID})
+	return query(ctx, tx, sql, args, []interface{}{&em.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }

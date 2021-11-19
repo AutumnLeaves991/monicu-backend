@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"pkg.mon.icu/monicu/internal/api"
 	"pkg.mon.icu/monicu/internal/config"
 	"pkg.mon.icu/monicu/internal/discord"
 	"pkg.mon.icu/monicu/internal/storage"
@@ -25,6 +26,7 @@ type app struct {
 
 	storage *storage.Storage
 	discord *discord.Discord
+	api     *api.API
 }
 
 func newApp(ctx context.Context, lcf zap.Config, log *zap.SugaredLogger) (*app, error) {
@@ -43,6 +45,9 @@ func newApp(ctx context.Context, lcf zap.Config, log *zap.SugaredLogger) (*app, 
 
 	log.Debug("Initializing Storage struct.")
 	a.storage = storage.NewStorage(ctx, log)
+
+	log.Debug("Initializing API struct.")
+	a.api = api.NewAPI(ctx, log, a.storage, api.NewConfig(a.config.Api.Port))
 
 	log.Debug("Initializing Discord struct.")
 	a.discord, err = discord.NewDiscord(ctx, log, a.config.Discord.Auth, discord.NewConfig(a.config.Discord.Guilds, a.config.Discord.Channels, a.config.Posts.IgnoreRegexp), a.storage)
@@ -79,6 +84,17 @@ func (a *app) Run() error {
 		a.logger.Debug("Closed connection with Discord API gateway.")
 	}()
 	a.logger.Debug("Successfully connected to Discord API gateway.")
+
+	a.logger.Debug("Starting HTTP API server.")
+	a.api.Listen()
+	defer func() {
+		a.logger.Debug("Closing HTTP API server.")
+		if err := a.api.Close(); err != nil {
+			a.logger.Errorf("Couldn't close HTTP API server: %s.", err)
+		}
+		a.logger.Debug("Closed HTTP API server.")
+	}()
+	a.logger.Debug("Started HTTP API server.")
 
 	a.logger.Info("Launch complete. Send SIGINT to gracefully terminate.")
 	<-a.ctx.Done()

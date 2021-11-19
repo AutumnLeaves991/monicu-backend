@@ -8,7 +8,7 @@ import (
 
 func queryRowFuncNoOp(row pgx.QueryFuncRow) error { return nil }
 
-func query(ctx context.Context, tx pgx.Tx, sql string, args []interface{}, scans []interface{}) error {
+func query(ctx context.Context, tx pgx.Tx, sql string, args []interface{}, scans []interface{}, fn func(row pgx.QueryFuncRow) error) error {
 	_, err := tx.QueryFunc(ctx, sql, args, scans, queryRowFuncNoOp)
 	return err
 }

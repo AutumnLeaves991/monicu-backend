@@ -22,23 +22,11 @@ func NewPostFromSnowflakeID(id string, channelID Ref, userID Ref, message string
 }
 
 func CreatePost(ctx context.Context, tx pgx.Tx, p *Post) error {
-	return query(
-		ctx,
-		tx,
-		`insert into post (discord_id, channel_id, user_id, message) values ($1, $2, $3, $4) returning id`,
-		[]interface{}{p.DiscordID, p.ChannelID, p.UserID, p.Message},
-		[]interface{}{&p.ID},
-	)
+	return query(ctx, tx, `insert into post (discord_id, channel_id, user_id, message) values ($1, $2, $3, $4) returning id`, []interface{}{p.DiscordID, p.ChannelID, p.UserID, p.Message}, []interface{}{&p.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }
 
 func FindPost(ctx context.Context, tx pgx.Tx, p *Post) error {
-	return query(
-		ctx,
-		tx,
-		`select id, channel_id, user_id, message from post where discord_id = $1`,
-		[]interface{}{p.DiscordID},
-		[]interface{}{&p.ID, &p.ChannelID, &p.UserID, &p.Message},
-	)
+	return query(ctx, tx, `select id, channel_id, user_id, message from post where discord_id = $1`, []interface{}{p.DiscordID}, []interface{}{&p.ID, &p.ChannelID, &p.UserID, &p.Message}, func(row pgx.QueryFuncRow) error { return nil })
 }
 
 func UpdatePost(ctx context.Context, tx pgx.Tx, p *Post) (bool,error) {
@@ -66,13 +54,7 @@ func DeletePostImages(ctx context.Context, tx pgx.Tx, p *Post) (bool, error) {
 
 func IsChannelEmpty(ctx context.Context, tx pgx.Tx, c *Channel) (bool, error) {
 	var i int
-	if err := query(
-		ctx,
-		tx,
-		`select 1 from post where channel_id = $1 limit 1`,
-		[]interface{}{c.ID},
-		[]interface{}{&i},
-	); err != nil {
+	if err := query(ctx, tx, `select 1 from post where channel_id = $1 limit 1`, []interface{}{c.ID}, []interface{}{&i}, func(row pgx.QueryFuncRow) error { return nil }); err != nil {
 		return false, err
 	} else {
 		return i == 0, nil

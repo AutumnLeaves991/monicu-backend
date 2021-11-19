@@ -19,21 +19,9 @@ func NewUserFromSnowflakeID(id string) *User {
 }
 
 func FindUser(ctx context.Context, tx pgx.Tx, u *User) error {
-	return query(
-		ctx,
-		tx,
-		`select id from "user" where discord_id = $1`,
-		[]interface{}{u.DiscordID},
-		[]interface{}{&u.ID},
-	)
+	return query(ctx, tx, `select id from "user" where discord_id = $1`, []interface{}{u.DiscordID}, []interface{}{&u.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }
 
 func FindOrCreateUser(ctx context.Context, tx pgx.Tx, u *User) error {
-	return query(
-		ctx,
-		tx,
-		`with e as (insert into "user" (discord_id) values ($1) on conflict do nothing returning id) select id from e union select id from "user" where discord_id = $1`,
-		[]interface{}{u.DiscordID},
-		[]interface{}{&u.ID},
-	)
+	return query(ctx, tx, `with e as (insert into "user" (discord_id) values ($1) on conflict do nothing returning id) select id from e union select id from "user" where discord_id = $1`, []interface{}{u.DiscordID}, []interface{}{&u.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }

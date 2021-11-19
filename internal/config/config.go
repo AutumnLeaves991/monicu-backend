@@ -28,6 +28,10 @@ type Config struct {
 	Logging struct {
 		Level zapcore.Level
 	}
+
+	Api struct {
+		Port uint16
+	}
 }
 
 func Read() (*Config, error) {

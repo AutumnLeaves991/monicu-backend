@@ -19,15 +19,9 @@ func NewGuildFromSnowflakeID(id string) *Guild {
 }
 
 func FindOrCreateGuild(ctx context.Context, tx pgx.Tx, g *Guild) error {
-	return query(
-		ctx,
-		tx,
-		`with e as (insert into guild (discord_id) values ($1) on conflict do nothing returning id) select id from e union select id from guild where discord_id = $1`,
-		[]interface{}{g.DiscordID},
-		[]interface{}{&g.ID},
-	)
+	return query(ctx, tx, `with e as (insert into guild (discord_id) values ($1) on conflict do nothing returning id) select id from e union select id from guild where discord_id = $1`, []interface{}{g.DiscordID}, []interface{}{&g.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }
 
 func FindGuild(ctx context.Context, tx pgx.Tx, g *Guild) error {
-	return query(ctx, tx, `select id from guild where discord_id = $1`, []interface{}{g.DiscordID}, []interface{}{&g.ID})
+	return query(ctx, tx, `select id from guild where discord_id = $1`, []interface{}{g.DiscordID}, []interface{}{&g.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }

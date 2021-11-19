@@ -20,21 +20,9 @@ func NewChannelFromSnowflakeID(id string, guildID Ref) *Channel {
 }
 
 func FindOrCreateChannel(ctx context.Context, tx pgx.Tx, ch *Channel) error {
-	return query(
-		ctx,
-		tx,
-		`with e as (insert into channel (discord_id, guild_id) values ($1, $2) on conflict do nothing returning id) select id from e union select id from channel where discord_id = $1 and guild_id = $2`,
-		[]interface{}{ch.DiscordID, ch.GuildID},
-		[]interface{}{&ch.ID},
-	)
+	return query(ctx, tx, `with e as (insert into channel (discord_id, guild_id) values ($1, $2) on conflict do nothing returning id) select id from e union select id from channel where discord_id = $1 and guild_id = $2`, []interface{}{ch.DiscordID, ch.GuildID}, []interface{}{&ch.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }
 
 func FindChannel(ctx context.Context, tx pgx.Tx, ch *Channel) error {
-	return query(
-		ctx,
-		tx,
-		`select id from channel where discord_id = $1`,
-		[]interface{}{ch.DiscordID},
-		[]interface{}{&ch.ID},
-	)
+	return query(ctx, tx, `select id from channel where discord_id = $1`, []interface{}{ch.DiscordID}, []interface{}{&ch.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }
