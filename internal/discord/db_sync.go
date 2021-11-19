@@ -1,12 +1,18 @@
 package discord
 
 import (
+	"context"
+	"errors"
 	"strconv"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jackc/pgx/v4"
 	"pkg.mon.icu/monicu/internal/storage/entity"
 )
+
+func (d *Discord) shouldLogError(err error) bool {
+	return !(err == nil || errors.Is(err, context.Canceled))
+}
 
 func (d *Discord) maybeSyncChannels() {
 	d.logger.Info("Synchronizing channels.")
@@ -182,7 +188,9 @@ func (d *Discord) maybeCreatePost(m *discordgo.Message) {
 
 		return nil
 	}); err != nil {
-		d.logger.Errorf("Failed to complete post creation transaction: %s.", err)
+		if d.shouldLogError(err) {
+			d.logger.Errorf("Failed to complete post creation transaction: %s.", err)
+		}
 	} else {
 		d.logger.Infof("Finished creating post for message %s.", m.ID)
 	}
@@ -262,7 +270,9 @@ func (d *Discord) maybeUpdatePost(m *discordgo.Message) {
 
 		return nil
 	}); err != nil {
-		d.logger.Errorf("Failed to retrieve post %s: %s.", m.ID, err)
+		if d.shouldLogError(err) {
+			d.logger.Errorf("Failed to retrieve post %s: %s.", m.ID, err)
+		}
 	} else if ep.ID == 0 {
 		if !d.shouldCreatePost(m) {
 			return
@@ -337,7 +347,9 @@ func (d *Discord) maybeAddReaction(r *discordgo.MessageReaction) {
 
 		return nil
 	}); err != nil {
-		d.logger.Errorf("Failed to complete reaction creation transaction: %s.", err)
+		if d.shouldLogError(err) {
+			d.logger.Errorf("Failed to complete reaction creation transaction: %s.", err)
+		}
 	} else {
 		d.logger.Infof("Finished creating reaction for message %s.", r.MessageID)
 	}
@@ -392,7 +404,9 @@ func (d *Discord) maybeRemoveReaction(r *discordgo.MessageReaction) {
 
 		return nil
 	}); err != nil {
-		d.logger.Errorf("Failed to complete reaction creation transaction: %s.", err)
+		if d.shouldLogError(err) {
+			d.logger.Errorf("Failed to complete reaction creation transaction: %s.", err)
+		}
 	} else {
 		d.logger.Infof("Finished deleting reaction for message %s.", r.MessageID)
 	}
@@ -422,7 +436,9 @@ func (d *Discord) maybeRemoveAllReactions(r *discordgo.MessageReaction) {
 
 		return nil
 	}); err != nil {
-		d.logger.Errorf("Failed to complete reaction deletion transaction: %s.", err)
+		if d.shouldLogError(err) {
+			d.logger.Errorf("Failed to complete reaction deletion transaction: %s.", err)
+		}
 	} else {
 		d.logger.Infof("Finished deleting reactions for message %s.", r.MessageID)
 	}
