@@ -28,3 +28,19 @@ func DeleteUserReaction(ctx context.Context, tx pgx.Tx, ur *UserReaction) (bool,
 		[]interface{}{ur.ReactionID, ur.UserID},
 	)
 }
+
+func CountUserReactions(ctx context.Context, tx pgx.Tx, p *Post) (uint32, error) {
+	var count uint32
+	if err := query(
+		ctx,
+		tx,
+		`select count(distinct ur.user_id) from post p join reaction r on p.id = r.post_id join user_reaction ur on r.id = ur.reaction_id where p.id = $1`,
+		[]interface{}{p.ID},
+		[]interface{}{&count},
+		func(row pgx.QueryFuncRow) error { return nil },
+	); err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}

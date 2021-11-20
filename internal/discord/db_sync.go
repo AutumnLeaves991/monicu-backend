@@ -111,6 +111,8 @@ func (d *Discord) maybeCreatePost(m *discordgo.Message) {
 		if d.shouldLogError(err) {
 			d.logger.Errorf("Failed to complete post creation transaction: %s.", err)
 		}
+	} else {
+		d.logger.Infof("Created post %s.", m.ID)
 	}
 }
 
@@ -278,6 +280,8 @@ func (d *Discord) maybeUpdatePost(m *discordgo.Message) {
 		m.Author = om.Author
 		m.GuildID = strconv.FormatUint(d.guildChannelCache[entity.MustParseSnowflake(m.ChannelID)], 10)
 		d.maybeCreatePost(m)
+	}  else {
+		d.logger.Infof("Updated post %s.", m.ID)
 	}
 }
 

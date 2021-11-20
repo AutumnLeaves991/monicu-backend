@@ -62,3 +62,23 @@ func fetchImageSize(ctx context.Context, url string) (uint64, error) {
 func CreateImage(ctx context.Context, tx pgx.Tx, im *Image) error {
 	return query(ctx, tx, `insert into image (post_id, url, width, height, size) values ($1, $2, $3, $4, $5) returning id`, []interface{}{im.PostID, im.URL, im.Width, im.Height, im.Size}, []interface{}{&im.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }
+
+func FindImages(ctx context.Context, tx pgx.Tx, p *Post) ([]*Image, error) {
+	images := make([]*Image, 0, 4)
+	q, err := tx.Query(ctx, `select url, width, height, size from image where post_id = $1`, p.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	defer q.Close()
+	for q.Next() {
+		im := &Image{}
+		if err := q.Scan(&im.URL, &im.Width, &im.Height, &im.Size); err != nil {
+			return nil, err
+		}
+
+		images = append(images, im)
+	}
+
+	return images, nil
+}

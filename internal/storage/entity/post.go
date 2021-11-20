@@ -29,7 +29,27 @@ func FindPost(ctx context.Context, tx pgx.Tx, p *Post) error {
 	return query(ctx, tx, `select id, channel_id, user_id, message from post where discord_id = $1`, []interface{}{p.DiscordID}, []interface{}{&p.ID, &p.ChannelID, &p.UserID, &p.Message}, func(row pgx.QueryFuncRow) error { return nil })
 }
 
-func UpdatePost(ctx context.Context, tx pgx.Tx, p *Post) (bool,error) {
+func FindPosts(ctx context.Context, tx pgx.Tx, offset uint32, limit uint64) ([]*Post, error) {
+	p := make([]*Post, 0, limit)
+	q, err := tx.Query(ctx, `select id, channel_id, user_id, message from post limit $1 offset $2`, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	defer q.Close()
+	for q.Next() {
+		ep := &Post{}
+		if err := q.Scan(&ep.ID, &ep.ChannelID, &ep.UserID, &ep.Message); err != nil {
+			return nil, err
+		}
+
+		p = append(p, ep)
+	}
+
+	return p, nil
+}
+
+func UpdatePost(ctx context.Context, tx pgx.Tx, p *Post) (bool, error) {
 	return queryUpdateDelete(
 		ctx,
 		tx,
@@ -37,7 +57,6 @@ func UpdatePost(ctx context.Context, tx pgx.Tx, p *Post) (bool,error) {
 		[]interface{}{p.DiscordID, p.ChannelID, p.UserID, p.Message},
 	)
 }
-
 
 func DeletePost(ctx context.Context, tx pgx.Tx, p *Post) (bool, error) {
 	return queryUpdateDelete(
