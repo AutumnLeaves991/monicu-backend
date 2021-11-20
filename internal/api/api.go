@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"pkg.mon.icu/monicu/internal/storage"
@@ -35,6 +37,10 @@ func NewAPI(ctx context.Context, logger *zap.SugaredLogger, storage *storage.Sto
 		router:  gin.New(),
 	}
 	a.serv = &http.Server{Addr: fmt.Sprintf(":%d", config.Port), Handler: a.router}
+	a.router.Use(
+		ginzap.Ginzap(logger.Desugar(), time.RFC3339, true),
+		ginzap.RecoveryWithZap(logger.Desugar(), true),
+	)
 	return a
 }
 
