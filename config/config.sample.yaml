@@ -11,3 +11,6 @@ Storage:
 
 Logging:
   Level: debug
+
+Api:
+  Port: 8081
