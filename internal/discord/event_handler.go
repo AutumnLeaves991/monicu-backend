@@ -8,6 +8,8 @@ import (
 	"pkg.mon.icu/monicu/internal/storage/model"
 )
 
+// Util functions
+
 func isGuildEvent(e interface{}) bool {
 	switch e := e.(type) {
 	case *discordgo.MessageUpdate:
@@ -66,8 +68,9 @@ func (d *Discord) shouldIgnoreEvent(e interface{}) bool {
 	return false
 }
 
-func (d *Discord) onReady(_ *discordgo.Session, e *discordgo.Ready) {
-	d.logger.Infof("Logged in Discord API as %s.", e.User)
+// Event handlers
+
+func (d *Discord) onReady(_ *discordgo.Session, _ *discordgo.Ready) {
 	d.buildChannelGuildCache()
 	d.createChannelsAndGuilds()
 	d.syncChannels()
@@ -77,64 +80,47 @@ func (d *Discord) onMessageCreate(_ *discordgo.Session, e *discordgo.MessageCrea
 	if d.shouldIgnoreEvent(e) {
 		return
 	}
-	if err := d.createPost(e.Message); err != nil {
-		d.logger.Errorf("Failed to create post: %s.", err)
-	}
+	d.createPost(e.Message)
 }
 
 func (d *Discord) onMessageUpdate(_ *discordgo.Session, e *discordgo.MessageUpdate) {
 	if d.shouldIgnoreEvent(e) {
 		return
 	}
-	if err := d.updatePost(e.Message); err != nil {
-		d.logger.Errorf("Failed to update post: %s.", err)
-	}
+	d.updatePost(e.Message)
 }
 
 func (d *Discord) onMessageDelete(_ *discordgo.Session, e *discordgo.MessageDelete) {
 	if d.shouldIgnoreEvent(e) {
 		return
 	}
-	if err := d.deletePost(e.Message); err != nil {
-		d.logger.Errorf("Failed to update post: %s.", err)
-	}
+	d.deletePost(e.Message)
 }
 
 func (d *Discord) onMessageDeleteBulk(_ *discordgo.Session, e *discordgo.MessageDeleteBulk) {
 	if d.shouldIgnoreEvent(e) {
 		return
 	}
-	d.logger.Debugf("Bulk-deleting posts in channel %s of guild %s.", e.ChannelID, e.GuildID)
-	for _, m := range e.Messages {
-		if err := d.deletePost(&discordgo.Message{ID: m}); err != nil {
-			d.logger.Errorf("Failed to delete post: %s.", err)
-		}
-	}
+	d.deletePostsBulk(e.Messages)
 }
 
 func (d *Discord) onMessageReactionAdd(_ *discordgo.Session, e *discordgo.MessageReactionAdd) {
 	if d.shouldIgnoreEvent(e) {
 		return
 	}
-	if err := d.addReaction(e.MessageReaction); err != nil {
-		d.logger.Errorf("Failed to add reaction: %s.", err)
-	}
+	d.addReaction(e.MessageReaction)
 }
 
 func (d *Discord) onMessageReactionRemove(_ *discordgo.Session, e *discordgo.MessageReactionRemove) {
 	if d.shouldIgnoreEvent(e) {
 		return
 	}
-	if err := d.removeReaction(e.MessageReaction); err != nil {
-		d.logger.Errorf("Failed to remove reaction: %s.", err)
-	}
+	d.removeReaction(e.MessageReaction)
 }
 
 func (d *Discord) onMessageReactionRemoveAll(_ *discordgo.Session, e *discordgo.MessageReactionRemoveAll) {
 	if d.shouldIgnoreEvent(e) {
 		return
 	}
-	if err := d.removeReactionsBulk(e.MessageReaction); err != nil {
-		d.logger.Errorf("Failed to bulk remove reactions: %s.", err)
-	}
+	d.removeReactionsBulk(e.MessageReaction)
 }

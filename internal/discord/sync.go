@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -10,16 +11,20 @@ import (
 	"pkg.mon.icu/monicu/internal/storage/model"
 )
 
+// Guilds/channels
+
 func (d *Discord) createChannelsAndGuilds() {
 	for g := range d.config.guilds {
 		gm := model.WrapGuildID(strconv.FormatUint(g, 10))
 		if err := d.createGuild(gm); err != nil {
 			d.logger.Errorf("Failed to create guild: %s.", err)
+			return
 		}
 
 		c, err := d.session.GuildChannels(strconv.FormatUint(g, 10))
 		if err != nil {
 			d.logger.Errorf("Failed to retrieve guild channels: %s.", err)
+			return
 		}
 		for _, ch := range c {
 			if d.config.chans.Contains(model.MustParseSnowflake(ch.ID)) {
@@ -45,11 +50,13 @@ func (d *Discord) createChannel(cm *model.Channel) error {
 	})
 }
 
+// Channel sync
+
 func (d *Discord) isSyncRequired(ID string) (bool, error) {
 	var empty bool
 	return empty, d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
 		cm := model.WrapChannelID(ID)
-		if err := model.FindChannel(d.ctx, tx, cm); err != nil {
+		if err := model.FindChannel(d.ctx, tx, cm); err != nil && !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("failed to find or create channel: %w", err)
 		}
 		if cm.ID == 0 {
@@ -57,7 +64,7 @@ func (d *Discord) isSyncRequired(ID string) (bool, error) {
 		}
 
 		var err error
-		if empty, err = model.IsChannelEmpty(d.ctx, tx, cm); err != nil {
+		if empty, err = model.IsChannelEmpty(d.ctx, tx, cm); err != nil && !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("failed to check if channel is empty: %w", err)
 		}
 		return nil
@@ -78,11 +85,7 @@ func (d *Discord) syncChannel(ID string) {
 		}
 
 		for _, m := range ms {
-			if isValidPost(m) {
-				if err := d.createPost(m); err != nil {
-					d.logger.Errorf("Failed to create post: %s.", err)
-				}
-			}
+			d.createPost(m)
 		}
 
 		beforeID = ms[len(ms)-1].ID
@@ -94,7 +97,7 @@ func (d *Discord) syncChannels() {
 		cID := strconv.FormatUint(c, 10)
 
 		sync, err := d.isSyncRequired(cID)
-		if err != nil {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			d.logger.Errorf("Failed to check if channel %d should be synchronized: %s.", c, err)
 			continue
 		}
@@ -103,6 +106,12 @@ func (d *Discord) syncChannels() {
 			go d.syncChannel(cID)
 		}
 	}
+}
+
+// Posts
+
+func isValidPost(m *discordgo.Message) bool {
+	return !(len(m.Attachments) == 0 && len(m.Embeds) == 0)
 }
 
 func (d *Discord) createPostImages(tx pgx.Tx, m *discordgo.Message, pm *model.Post) error {
@@ -137,15 +146,13 @@ func (d *Discord) createPostImages(tx pgx.Tx, m *discordgo.Message, pm *model.Po
 	return nil
 }
 
-func isValidPost(m *discordgo.Message) bool {
-	return !(len(m.Attachments) == 0 && len(m.Embeds) == 0)
-}
-
-func (d *Discord) createPost(m *discordgo.Message) error {
+func (d *Discord) createPost(m *discordgo.Message) {
 	if !isValidPost(m) {
-		return nil
+		d.logger.Debugf("Skipping message %s.", m.ID)
+		return
 	}
-	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+	d.logger.Infof("Creating post %s.", m.ID)
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
 		if m.GuildID == "" {
 			// In cases such as channel synchronization message will likely lack GuildID
 			// So we pull it from the cache
@@ -248,16 +255,69 @@ func (d *Discord) createPost(m *discordgo.Message) error {
 					}
 				}
 
-				afterID = ur[len(ur) - 1].ID
+				afterID = ur[len(ur)-1].ID
 			}
 		}
 
 		return nil
-	})
+	}); err != nil && !errors.Is(err, context.Canceled) {
+		d.logger.Errorf("Failed to create post: %s.", err)
+	}
 }
 
-func (d *Discord) addReaction(r *discordgo.MessageReaction) error {
-	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+func (d *Discord) updatePost(m *discordgo.Message) {
+	d.logger.Infof("Updating post %s.", m.ID)
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+		pm := model.WrapDiscordMessage(m)
+		if err := model.FindPost(d.ctx, tx, pm); err != nil {
+			return fmt.Errorf("failed to find post: %w", err)
+		}
+		if pm.ID == 0 {
+			return nil
+		}
+
+		if _, err := model.DeletePostImages(d.ctx, tx, pm); err != nil {
+			return fmt.Errorf("failed to delete post images: %w", err)
+		}
+		if err := d.createPostImages(tx, m, pm); err != nil {
+			return fmt.Errorf("failed to create post images: %w", err)
+		}
+		if _, err := model.UpdatePost(d.ctx, tx, pm); err != nil {
+			return fmt.Errorf("failed to update post: %w", err)
+		}
+
+		return nil
+	}); err != nil && !errors.Is(err, context.Canceled) {
+		d.logger.Errorf("Failed to update post: %s.", err)
+	}
+}
+
+func (d *Discord) deletePost(m *discordgo.Message) {
+	d.logger.Infof("Deleting post %s.", m.ID)
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+		pm := model.WrapDiscordMessage(m)
+		if _, err := model.DeletePost(d.ctx, tx, pm); err != nil {
+			return fmt.Errorf("failed to find post: %w", err)
+		}
+
+		return nil
+	}); err != nil && !errors.Is(err, context.Canceled) {
+		d.logger.Errorf("Failed to delete post: %s.", err)
+	}
+}
+
+func (d *Discord) deletePostsBulk(messages []string) {
+	d.logger.Debugf("Bulk-deleting posts %s-%s.", messages[0], messages[len(messages)-1])
+	for _, m := range messages {
+		d.deletePost(&discordgo.Message{ID: m})
+	}
+}
+
+// Reactions
+
+func (d *Discord) addReaction(r *discordgo.MessageReaction) {
+	d.logger.Infof("Creating reaction to post %s from user %s with emoji %s.", r.MessageID, r.UserID, r.Emoji.Name)
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
 		pm := model.WrapMessageID(r.MessageID)
 		if err := model.FindPost(d.ctx, tx, pm); err != nil {
 			return fmt.Errorf("failed to find post: %w", err)
@@ -289,11 +349,14 @@ func (d *Discord) addReaction(r *discordgo.MessageReaction) error {
 		}
 
 		return nil
-	})
+	}); err != nil && !errors.Is(err, context.Canceled) {
+		d.logger.Errorf("Failed to add reaction: %s.", err)
+	}
 }
 
-func (d *Discord) removeReaction(r *discordgo.MessageReaction) error {
-	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+func (d *Discord) removeReaction(r *discordgo.MessageReaction) {
+	d.logger.Infof("Removing reaction from post %s from user %s with emoji %s.", r.MessageID, r.UserID, r.Emoji.Name)
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
 		pm := model.WrapMessageID(r.MessageID)
 		if err := model.FindPost(d.ctx, tx, pm); err != nil {
 			return fmt.Errorf("failed to find post: %w", err)
@@ -325,11 +388,14 @@ func (d *Discord) removeReaction(r *discordgo.MessageReaction) error {
 		}
 
 		return nil
-	})
+	}); err != nil && !errors.Is(err, context.Canceled) {
+		d.logger.Errorf("Failed to remove reaction: %s.", err)
+	}
 }
 
-func (d *Discord) removeReactionsBulk(r *discordgo.MessageReaction) error {
-	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
+func (d *Discord) removeReactionsBulk(r *discordgo.MessageReaction) {
+	d.logger.Infof("Removing all reactions from post %s.", r.MessageID)
+	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
 		pm := model.WrapMessageID(r.MessageID)
 		if err := model.FindPost(d.ctx, tx, pm); err != nil {
 			return fmt.Errorf("failed to find post: %w", err)
@@ -343,40 +409,7 @@ func (d *Discord) removeReactionsBulk(r *discordgo.MessageReaction) error {
 		}
 
 		return nil
-	})
-}
-
-func (d *Discord) updatePost(m *discordgo.Message) error {
-	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
-		pm := model.WrapDiscordMessage(m)
-		if err := model.FindPost(d.ctx, tx, pm); err != nil {
-			return fmt.Errorf("failed to find post: %w", err)
-		}
-		if pm.ID == 0 {
-			return nil
-		}
-
-		if _, err := model.DeletePostImages(d.ctx, tx, pm); err != nil {
-			return fmt.Errorf("failed to delete post images: %w", err)
-		}
-		if err := d.createPostImages(tx, m, pm); err != nil {
-			return fmt.Errorf("failed to create post images: %w", err)
-		}
-		if _, err := model.UpdatePost(d.ctx, tx, pm); err != nil {
-			return fmt.Errorf("failed to update post: %w", err)
-		}
-
-		return nil
-	})
-}
-
-func (d *Discord) deletePost(m *discordgo.Message) error {
-	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
-		pm := model.WrapDiscordMessage(m)
-		if _, err := model.DeletePost(d.ctx, tx, pm); err != nil {
-			return fmt.Errorf("failed to find post: %w", err)
-		}
-
-		return nil
-	})
+	}); err != nil && !errors.Is(err, context.Canceled) {
+		d.logger.Errorf("Failed to remove reactions: %s.", err)
+	}
 }
