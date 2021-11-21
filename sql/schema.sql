@@ -6,6 +6,9 @@ create table if not exists "user"
     discord_id bigint not null
 );
 
+alter table "user"
+    owner to monicu;
+
 create unique index if not exists user_discord_id_uindex
     on "user" (discord_id);
 
@@ -19,6 +22,9 @@ create table if not exists guild
             primary key,
     discord_id bigint not null
 );
+
+alter table guild
+    owner to monicu;
 
 create unique index if not exists guild_discord_id_uindex
     on guild (discord_id);
@@ -35,6 +41,9 @@ create table if not exists channel
             references guild
             on update cascade on delete cascade
 );
+
+alter table channel
+    owner to monicu;
 
 create unique index if not exists channel_discord_id_uindex
     on channel (discord_id);
@@ -59,6 +68,9 @@ create table if not exists post
     message    varchar(2000) not null
 );
 
+alter table post
+    owner to monicu;
+
 create unique index if not exists post_discord_id_uindex
     on post (discord_id);
 
@@ -80,6 +92,9 @@ create table if not exists image
     size    bigint  not null
 );
 
+alter table image
+    owner to monicu;
+
 create unique index if not exists image_id_uindex
     on image (id);
 
@@ -91,6 +106,9 @@ create table if not exists emoji
     discord_id bigint,
     name       varchar(32) not null
 );
+
+alter table emoji
+    owner to monicu;
 
 create unique index if not exists emoji_discord_id_uindex
     on emoji (discord_id);
@@ -117,6 +135,9 @@ create table if not exists reaction
             on update cascade on delete cascade
 );
 
+alter table reaction
+    owner to monicu;
+
 create unique index if not exists reaction_id_uindex
     on reaction (id);
 
@@ -138,8 +159,12 @@ create table if not exists user_reaction
             on update cascade on delete cascade
 );
 
+alter table user_reaction
+    owner to monicu;
+
 create unique index if not exists user_reaction_id_uindex
     on user_reaction (id);
 
 create unique index if not exists user_reaction_reaction_id_user_id_uindex
     on user_reaction (reaction_id, user_id);
+
