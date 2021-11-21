@@ -115,18 +115,13 @@ func main() {
 
 	log.Info("Initializing application.")
 	a, err := newApp(ctx, lcf, log.Sugar())
-	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			log.Sugar().Fatalf("Couldn't initialize application: %s.", err)
-		}
-
+	if err != nil && !errors.Is(err, context.Canceled) {
+		log.Sugar().Fatalf("Couldn't initialize application: %s.", err)
 		return
 	}
 
 	log.Debug("Initialization tasks complete, continuing with launch.")
-	if err := a.Run(); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			log.Sugar().Fatalf("Application crashed: %s.", err)
-		}
+	if err := a.Run(); err != nil && !errors.Is(err, context.Canceled) {
+		log.Sugar().Fatalf("Application crashed: %s.", err)
 	}
 }
