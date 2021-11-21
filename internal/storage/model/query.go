@@ -1,4 +1,4 @@
-package entity
+package model
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
-func queryRowFuncNoOp(row pgx.QueryFuncRow) error { return nil }
+func queryRowFuncNoOp(pgx.QueryFuncRow) error { return nil }
 
-func query(ctx context.Context, tx pgx.Tx, sql string, args []interface{}, scans []interface{}, fn func(row pgx.QueryFuncRow) error) error {
+func query(ctx context.Context, tx pgx.Tx, sql string, args []interface{}, scans []interface{}) error {
 	_, err := tx.QueryFunc(ctx, sql, args, scans, queryRowFuncNoOp)
 	return err
 }

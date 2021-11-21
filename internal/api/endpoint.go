@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
-	"pkg.mon.icu/monicu/internal/storage/entity"
+	"pkg.mon.icu/monicu/internal/storage/model"
 )
 
 // registerGetPosts GET /posts/:page
@@ -22,9 +22,9 @@ func (a *API) registerGetPosts() {
 	}
 
 	type postModel struct {
-		ID        entity.Ref    `json:"id"`
-		ChannelID entity.Ref    `json:"channel"`
-		UserID    entity.Ref    `json:"user"`
+		ID        model.Ref `json:"id"`
+		ChannelID model.Ref `json:"channel"`
+		UserID    model.Ref `json:"user"`
 		//Message   string        `json:"message"`
 		Images    []*imageModel `json:"images"`
 		Reactions uint32        `json:"reactions"`
@@ -37,16 +37,16 @@ func (a *API) registerGetPosts() {
 		}
 
 		if err := a.storage.Begin(a.ctx, func(tx pgx.Tx) error {
-			var posts []*entity.Post
+			var posts []*model.Post
 			var err error
-			if posts, err = entity.FindPosts(a.ctx, tx, param.Page * 100, 100); err != nil {
+			if posts, err = model.FindPosts(a.ctx, tx, param.Page * 100, 100); err != nil {
 				return err
 			}
 
 			pm := make([]*postModel, len(posts))
 			for i, p := range posts {
-				var images []*entity.Image
-				if images, err = entity.FindImages(a.ctx, tx, p); err != nil {
+				var images []*model.Image
+				if images, err = model.FindImages(a.ctx, tx, p); err != nil {
 					return err
 				}
 
@@ -56,7 +56,7 @@ func (a *API) registerGetPosts() {
 				}
 
 				var rc uint32
-				if rc, err = entity.CountUserReactions(a.ctx, tx, p); err != nil {
+				if rc, err = model.CountUserReactions(a.ctx, tx, p); err != nil {
 					return err
 				}
 

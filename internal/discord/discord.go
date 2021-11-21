@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"go.uber.org/zap"
 	"pkg.mon.icu/monicu/internal/storage"
-	"pkg.mon.icu/monicu/internal/storage/entity"
+	"pkg.mon.icu/monicu/internal/storage/model"
 )
 
 type Config struct {
@@ -26,13 +26,15 @@ func NewConfig(guilds, channels []uint64, ignoreRegexp *regexp.Regexp) *Config {
 }
 
 type Discord struct {
-	ctx               context.Context
-	logger            *zap.SugaredLogger
-	session           *discordgo.Session
-	handlerRemFns     []func()
-	config            *Config
-	storage           *storage.Storage
-	guildChannelCache map[uint64]uint64
+	ctx    context.Context
+	logger *zap.SugaredLogger
+
+	session       *discordgo.Session
+	handlerRemFns []func()
+
+	config                *Config
+	storage               *storage.Storage
+	channelGuildRelations map[uint64]uint64
 }
 
 func NewDiscord(ctx context.Context, log *zap.SugaredLogger, auth string, config *Config, store *storage.Storage) (*Discord, error) {
@@ -40,15 +42,17 @@ func NewDiscord(ctx context.Context, log *zap.SugaredLogger, auth string, config
 	if err != nil {
 		return nil, err
 	}
+
 	d := &Discord{
-		ctx:               ctx,
-		logger:            log,
-		session:           s,
-		handlerRemFns:     make([]func(), 0, 8),
-		config:            config,
-		storage:           store, /*queue: queue.New(),*/
-		guildChannelCache: make(map[uint64]uint64),
+		ctx:                   ctx,
+		logger:                log,
+		session:               s,
+		handlerRemFns:         make([]func(), 0, 8),
+		config:                config,
+		storage:               store,
+		channelGuildRelations: make(map[uint64]uint64),
 	}
+
 	return d, nil
 }
 
@@ -68,8 +72,8 @@ func (d *Discord) addHandlers() {
 }
 
 func (d *Discord) removeHandlers() {
-	for _, hFn := range d.handlerRemFns {
-		hFn()
+	for _, removeHandler := range d.handlerRemFns {
+		removeHandler()
 	}
 }
 
@@ -77,11 +81,11 @@ func (d *Discord) buildChannelGuildCache() {
 	for chanID := range d.config.chans {
 		chann, err := d.session.Channel(strconv.FormatUint(chanID, 10))
 		if err != nil {
-			d.logger.Errorf("Failed to retrieve channel %d.", chanID)
-			return
+			d.logger.Errorf("Failed to retrieve channel %d: %s.", chanID, err)
+			continue
 		}
 
-		d.guildChannelCache[chanID] = entity.MustParseSnowflake(chann.GuildID)
+		d.channelGuildRelations[chanID] = model.MustParseSnowflake(chann.GuildID)
 	}
 }
 

@@ -1,4 +1,4 @@
-package entity
+package model
 
 import (
 	"context"
@@ -16,27 +16,12 @@ func NewEmoji(ID ID, discordID NullableSnowflake, name string) *Emoji {
 	return &Emoji{NullIdentifiableDiscordEntity{IdentifiableEntity{ID}, discordID}, name}
 }
 
-func NewEmojiFromDiscord(em *discordgo.Emoji) *Emoji {
+func WrapDiscordEmoji(em *discordgo.Emoji) *Emoji {
 	if em.ID == "" {
 		return NewEmoji(0, NullableSnowflake{}, em.Name)
 	} else {
 		return NewEmoji(0, NullableSnowflake{Int64: int64(MustParseSnowflake(em.ID)), Valid: true}, em.Name)
 	}
-}
-
-func FindEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
-	var sql string
-	var args []interface{}
-
-	if em.DiscordID.Valid {
-		sql = `select id from emoji where discord_id = $1`
-		args = []interface{}{em.DiscordID}
-	} else {
-		sql = `select id from emoji where name = $1`
-		args = []interface{}{em.Name}
-	}
-
-	return query(ctx, tx, sql, args, []interface{}{&em.ID}, func(row pgx.QueryFuncRow) error { return nil })
 }
 
 func FindOrCreateEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
@@ -51,5 +36,5 @@ func FindOrCreateEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
 		args = []interface{}{em.Name}
 	}
 
-	return query(ctx, tx, sql, args, []interface{}{&em.ID}, func(row pgx.QueryFuncRow) error { return nil })
+	return query(ctx, tx, sql, args, []interface{}{&em.ID})
 }
