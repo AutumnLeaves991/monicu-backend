@@ -77,10 +77,8 @@ func (d *Discord) onMessageCreate(_ *discordgo.Session, e *discordgo.MessageCrea
 	if d.shouldIgnoreEvent(e) {
 		return
 	}
-	if isValidPost(e.Message) {
-		if err := d.createPost(e.Message); err != nil {
-			d.logger.Errorf("Failed to create post: %s.", err)
-		}
+	if err := d.createPost(e.Message); err != nil {
+		d.logger.Errorf("Failed to create post: %s.", err)
 	}
 }
 

@@ -45,10 +45,6 @@ func (d *Discord) createChannel(cm *model.Channel) error {
 	})
 }
 
-func isValidPost(m *discordgo.Message) bool {
-	return !(len(m.Attachments) == 0 && len(m.Embeds) == 0)
-}
-
 func (d *Discord) isSyncRequired(ID string) (bool, error) {
 	var empty bool
 	return empty, d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
@@ -141,7 +137,14 @@ func (d *Discord) createPostImages(tx pgx.Tx, m *discordgo.Message, pm *model.Po
 	return nil
 }
 
+func isValidPost(m *discordgo.Message) bool {
+	return !(len(m.Attachments) == 0 && len(m.Embeds) == 0)
+}
+
 func (d *Discord) createPost(m *discordgo.Message) error {
+	if !isValidPost(m) {
+		return nil
+	}
 	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
 		if m.GuildID == "" {
 			// In cases such as channel synchronization message will likely lack GuildID
