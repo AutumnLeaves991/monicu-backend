@@ -36,7 +36,7 @@ func FindPost(ctx context.Context, tx pgx.Tx, p *Post) error {
 
 func FindPosts(ctx context.Context, tx pgx.Tx, offset uint32, limit uint64) ([]*Post, error) {
 	p := make([]*Post, 0, limit)
-	q, err := tx.Query(ctx, `select id, channel_id, user_id, message from post limit $1 offset $2`, limit, offset)
+	q, err := tx.Query(ctx, `select id, channel_id, user_id, message from post order by discord_id desc limit $1 offset $2`, limit, offset)
 	if err != nil {
 		return nil, err
 	}
