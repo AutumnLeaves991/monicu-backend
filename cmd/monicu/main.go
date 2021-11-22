@@ -32,9 +32,9 @@ type app struct {
 func newApp(ctx context.Context, lcf zap.Config, log *zap.SugaredLogger) (*app, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	a := &app{ctx: ctx, cancel: cancel, logConf: lcf, logger: log}
-	var err error
 
 	log.Debug("Loading configuration.")
+	var err error
 	a.config, err = config.Read()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't load configuration: %w", err)
