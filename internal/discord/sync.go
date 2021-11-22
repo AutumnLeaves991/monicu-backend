@@ -13,8 +13,10 @@ import (
 
 // Guilds/channels
 
+// createChannelsAndGuilds populates database with entries for guilds and channels that are
+// defined in config.
 func (d *Discord) createChannelsAndGuilds() {
-	for g := range d.config.guilds {
+	for _, g := range d.config.guilds.Values() {
 		gm := model.WrapGuildID(strconv.FormatUint(g, 10))
 		if err := d.createGuild(gm); err != nil {
 			d.logger.Errorf("Failed to create guild: %s.", err)
@@ -38,12 +40,16 @@ func (d *Discord) createChannelsAndGuilds() {
 	}
 }
 
+// createGuild creates (or finds, effectively creating one if it did not exist) guild entry in database
+// for the specified guild model.
 func (d *Discord) createGuild(gm *model.Guild) error {
 	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
 		return model.FindOrCreateGuild(d.ctx, tx, gm)
 	})
 }
 
+// createChannel created (or finds, effectively creating one if it did not exist) channel entry in database
+// for the specified channel model.
 func (d *Discord) createChannel(cm *model.Channel) error {
 	return d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
 		return model.FindOrCreateChannel(d.ctx, tx, cm)
@@ -52,6 +58,7 @@ func (d *Discord) createChannel(cm *model.Channel) error {
 
 // Channel sync
 
+// isSyncRequired checks if channel with the specified ID has no posts and requires initial synchronization.
 func (d *Discord) isSyncRequired(ID string) (bool, error) {
 	var empty bool
 	return empty, d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
@@ -71,6 +78,7 @@ func (d *Discord) isSyncRequired(ID string) (bool, error) {
 	})
 }
 
+// syncChannel performs initial synchronization of channel with the specified ID.
 func (d *Discord) syncChannel(ID string) {
 	var beforeID string
 	for {
@@ -92,8 +100,10 @@ func (d *Discord) syncChannel(ID string) {
 	}
 }
 
+// syncChannel attempts synchronization of all channels defined in config in parallel skipping channels
+// that do not require initial synchronization.
 func (d *Discord) syncChannels() {
-	for c := range d.config.chans {
+	for _, c := range d.config.chans.Values() {
 		cID := strconv.FormatUint(c, 10)
 
 		sync, err := d.isSyncRequired(cID)
@@ -110,10 +120,13 @@ func (d *Discord) syncChannels() {
 
 // Posts
 
+// isValidPost checks is message makes a valid post with images, returning false for messages that have no
+// image attachments or embeds.
 func isValidPost(m *discordgo.Message) bool {
 	return !(len(m.Attachments) == 0 && len(m.Embeds) == 0)
 }
 
+// createPostImages creates images for a post.
 func (d *Discord) createPostImages(tx pgx.Tx, m *discordgo.Message, pm *model.Post) error {
 	for _, at := range m.Attachments {
 		if at.Width != 0 || at.Height != 0 {
@@ -146,6 +159,7 @@ func (d *Discord) createPostImages(tx pgx.Tx, m *discordgo.Message, pm *model.Po
 	return nil
 }
 
+// createPost creates a post from Discord message.
 func (d *Discord) createPost(m *discordgo.Message) {
 	if !isValidPost(m) {
 		d.logger.Debugf("Skipping message %s.", m.ID)
@@ -265,6 +279,8 @@ func (d *Discord) createPost(m *discordgo.Message) {
 	}
 }
 
+// updatePost updates a post (or creates one if an attachment- and embed-less message contained a link
+// and was updated automatically server-side with attachment/embed) from Discord message.
 func (d *Discord) updatePost(m *discordgo.Message) {
 	d.logger.Infof("Updating post %s.", m.ID)
 	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
@@ -292,6 +308,7 @@ func (d *Discord) updatePost(m *discordgo.Message) {
 	}
 }
 
+// deletePost deletes a post from Discord message.
 func (d *Discord) deletePost(m *discordgo.Message) {
 	d.logger.Infof("Deleting post %s.", m.ID)
 	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
@@ -306,6 +323,7 @@ func (d *Discord) deletePost(m *discordgo.Message) {
 	}
 }
 
+// deletePostsBulk deletes a number of posts from array of Discord IDs.
 func (d *Discord) deletePostsBulk(messages []string) {
 	d.logger.Debugf("Bulk-deleting posts %s-%s.", messages[0], messages[len(messages)-1])
 	for _, m := range messages {
@@ -315,6 +333,7 @@ func (d *Discord) deletePostsBulk(messages []string) {
 
 // Reactions
 
+// addReaction adds reaction to post loaded from the database for the message that is tied to the specified reaction.
 func (d *Discord) addReaction(r *discordgo.MessageReaction) {
 	d.logger.Infof("Creating reaction to post %s from user %s with emoji %s.", r.MessageID, r.UserID, r.Emoji.Name)
 	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
@@ -354,6 +373,7 @@ func (d *Discord) addReaction(r *discordgo.MessageReaction) {
 	}
 }
 
+// removeReaction removes reaction from post loaded from the database for the message that is tied to the specified reaction.
 func (d *Discord) removeReaction(r *discordgo.MessageReaction) {
 	d.logger.Infof("Removing reaction from post %s from user %s with emoji %s.", r.MessageID, r.UserID, r.Emoji.Name)
 	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {
@@ -393,6 +413,7 @@ func (d *Discord) removeReaction(r *discordgo.MessageReaction) {
 	}
 }
 
+// removeReactionsBulk removes all reactions from post loaded from the database for the message that is tied to the specified reaction.
 func (d *Discord) removeReactionsBulk(r *discordgo.MessageReaction) {
 	d.logger.Infof("Removing all reactions from post %s.", r.MessageID)
 	if err := d.storage.Begin(d.ctx, func(tx pgx.Tx) error {

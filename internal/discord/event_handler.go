@@ -10,6 +10,11 @@ import (
 
 // Util functions
 
+// isGuildEvent checks if the specified event (see list of handled events below)
+// is originating from a guild (aka server.)
+//
+// Handled event types: MessageCreate, MessageUpdate, MessageDelete, MessageDeleteBulk, MessageReactionAdd,
+// MessageReactionRemove, MessageReactionRemoveAll.
 func isGuildEvent(e interface{}) bool {
 	switch e := e.(type) {
 	case *discordgo.MessageUpdate:
@@ -31,12 +36,22 @@ func isGuildEvent(e interface{}) bool {
 	}
 }
 
+// shouldIgnoreEvent checks if the specified event (see list of handled events below)
+// should be ignored and not handled furthermore.
+//
+// First, function checks if event is a guild event (see isGuildEvent, except for MessageUpdate, which
+// most probably will have GuildID field omitted.)
+//
+// Then, it checks if event's guild is in config as well as its channel.
+//
+// Handled event types: MessageCreate, MessageUpdate, MessageDelete, MessageDeleteBulk, MessageReactionAdd,
+// MessageReactionRemove, MessageReactionRemoveAll.
 func (d *Discord) shouldIgnoreEvent(e interface{}) bool {
 	var gID, cID model.Snowflake
 	switch e := e.(type) {
-	case *discordgo.MessageUpdate:
-		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
 	case *discordgo.MessageCreate:
+		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
+	case *discordgo.MessageUpdate:
 		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
 	case *discordgo.MessageDelete:
 		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
@@ -52,20 +67,14 @@ func (d *Discord) shouldIgnoreEvent(e interface{}) bool {
 		panic(fmt.Errorf("unknown event type %s", reflect.TypeOf(e).Name()))
 	}
 
-	if !d.config.guilds.Contains(gID) {
-		return true
+	_, update := e.(*discordgo.MessageUpdate)
+	if isGuildEvent(e) || update {
+		if !d.config.guilds.Contains(gID) {
+			return true
+		}
 	}
 
-	if !isGuildEvent(e) {
-		_, ok := e.(*discordgo.MessageUpdate)
-		return ok
-	}
-
-	if !d.config.chans.Contains(cID) {
-		return true
-	}
-
-	return false
+	return d.config.chans.Contains(cID)
 }
 
 // Event handlers

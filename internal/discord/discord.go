@@ -12,8 +12,8 @@ import (
 )
 
 type Config struct {
-	guilds       Uint64Set
-	chans        Uint64Set
+	guilds       *Uint64Set
+	chans        *Uint64Set
 	ignoreRegexp *regexp.Regexp
 }
 
@@ -78,7 +78,7 @@ func (d *Discord) removeHandlers() {
 }
 
 func (d *Discord) buildChannelGuildCache() {
-	for chanID := range d.config.chans {
+	for _, chanID := range d.config.chans.Values() {
 		chann, err := d.session.Channel(strconv.FormatUint(chanID, 10))
 		if err != nil {
 			d.logger.Errorf("Failed to retrieve channel %d: %s.", chanID, err)

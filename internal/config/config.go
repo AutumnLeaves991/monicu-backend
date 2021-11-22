@@ -8,13 +8,14 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 	"pkg.mon.icu/monicu/internal/config/hook"
+	"pkg.mon.icu/monicu/internal/storage/model"
 )
 
 type Config struct {
 	Discord struct {
 		Auth     string
-		Guilds   []snowflake
-		Channels []snowflake
+		Guilds   []model.Snowflake
+		Channels []model.Snowflake
 	}
 
 	Posts struct {
