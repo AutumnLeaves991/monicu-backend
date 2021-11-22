@@ -293,6 +293,16 @@ func (d *Discord) updatePost(m *discordgo.Message) {
 			return fmt.Errorf("failed to find post: %w", err)
 		}
 		if pm.ID == 0 {
+			if om, err := d.session.ChannelMessage(m.ChannelID, m.ID); err != nil {
+				return fmt.Errorf("failed to fetch message: %w", err)
+			} else {
+				m.Author = om.Author
+				d.createPost(m)
+				return nil
+			}
+		}
+		if len(m.Attachments) == 0 && len(m.Embeds) == 0 {
+			d.deletePost(m)
 			return nil
 		}
 
