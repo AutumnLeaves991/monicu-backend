@@ -1,7 +1,7 @@
 Discord:
   Auth: # $CONF_DISCORD_AUTH
-  Guilds: [ 372766620977725441 ]
-  Channels: [ 393978308372594688 ]
+  Guilds: [ 000000000000000000 ]
+  Channels: [ 000000000000000000 ]
 
 Posts:
   IgnoreRegexp: nopost
