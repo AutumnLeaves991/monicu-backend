@@ -74,7 +74,7 @@ func (d *Discord) shouldIgnoreEvent(e interface{}) bool {
 		}
 	}
 
-	return d.config.chans.Contains(cID)
+	return !d.config.chans.Contains(cID)
 }
 
 // Event handlers

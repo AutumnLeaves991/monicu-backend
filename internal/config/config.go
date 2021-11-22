@@ -60,8 +60,8 @@ func readUnmarshalConfig(v *viper.Viper) (*Config, error) {
 	}
 	c := &Config{}
 	if err := v.Unmarshal(c, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
-		hook.Regexp(), hook.Level()),
-	)); err != nil {
+		hook.Regexp(), hook.Level(),
+	))); err != nil {
 		return nil, err
 	}
 	return c, nil
