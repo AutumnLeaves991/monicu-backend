@@ -93,6 +93,10 @@ func (d *Discord) syncChannel(ID string) {
 		}
 
 		for _, m := range ms {
+			if d.ctx.Err() != nil {
+				return
+			}
+
 			d.createPost(m)
 		}
 
