@@ -8,13 +8,14 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 	"pkg.mon.icu/monicu/internal/config/hook"
+	"pkg.mon.icu/monicu/internal/storage/model"
 )
 
 type Config struct {
 	Discord struct {
 		Auth     string
-		Guilds   []snowflake
-		Channels []snowflake
+		Guilds   []model.Snowflake
+		Channels []model.Snowflake
 	}
 
 	Posts struct {
@@ -27,6 +28,10 @@ type Config struct {
 
 	Logging struct {
 		Level zapcore.Level
+	}
+
+	Api struct {
+		Port uint16
 	}
 }
 
@@ -55,8 +60,8 @@ func readUnmarshalConfig(v *viper.Viper) (*Config, error) {
 	}
 	c := &Config{}
 	if err := v.Unmarshal(c, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
-		hook.Regexp(), hook.Level()),
-	)); err != nil {
+		hook.Regexp(), hook.Level(),
+	))); err != nil {
 		return nil, err
 	}
 	return c, nil

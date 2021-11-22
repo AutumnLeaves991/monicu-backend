@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"pkg.mon.icu/monicu/internal/api"
 	"pkg.mon.icu/monicu/internal/config"
 	"pkg.mon.icu/monicu/internal/discord"
 	"pkg.mon.icu/monicu/internal/storage"
@@ -19,20 +20,21 @@ type app struct {
 	cancel context.CancelFunc
 
 	logConf zap.Config
-	logger  *zap.Logger
+	logger  *zap.SugaredLogger
 
 	config *config.Config
 
 	storage *storage.Storage
 	discord *discord.Discord
+	api     *api.API
 }
 
-func newApp(ctx context.Context, lcf zap.Config, log *zap.Logger) (*app, error) {
+func newApp(ctx context.Context, lcf zap.Config, log *zap.SugaredLogger) (*app, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	a := &app{ctx: ctx, cancel: cancel, logConf: lcf, logger: log}
-	var err error
 
 	log.Debug("Loading configuration.")
+	var err error
 	a.config, err = config.Read()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't load configuration: %w", err)
@@ -43,6 +45,9 @@ func newApp(ctx context.Context, lcf zap.Config, log *zap.Logger) (*app, error) 
 
 	log.Debug("Initializing Storage struct.")
 	a.storage = storage.NewStorage(ctx, log)
+
+	log.Debug("Initializing API struct.")
+	a.api = api.NewAPI(ctx, log, a.storage, api.NewConfig(a.config.Api.Port))
 
 	log.Debug("Initializing Discord struct.")
 	a.discord, err = discord.NewDiscord(ctx, log, a.config.Discord.Auth, discord.NewConfig(a.config.Discord.Guilds, a.config.Discord.Channels, a.config.Posts.IgnoreRegexp), a.storage)
@@ -61,7 +66,7 @@ func (a *app) Run() error {
 	defer func() {
 		a.logger.Debug("Closing PostgreSQL storage.")
 		if err := a.storage.Close(); err != nil {
-			a.logger.Sugar().Errorf("Couldn't close storage: %s.", err)
+			a.logger.Errorf("Couldn't close storage: %s.", err)
 		}
 		a.logger.Debug("Closed PostgreSQL storage.")
 	}()
@@ -74,11 +79,22 @@ func (a *app) Run() error {
 	defer func() {
 		a.logger.Debug("Closing connection with Discord API gateway.")
 		if err := a.discord.Close(); err != nil {
-			a.logger.Sugar().Errorf("Couldn't close Discord: %s.", err)
+			a.logger.Errorf("Couldn't close Discord: %s.", err)
 		}
 		a.logger.Debug("Closed connection with Discord API gateway.")
 	}()
 	a.logger.Debug("Successfully connected to Discord API gateway.")
+
+	a.logger.Debug("Starting HTTP API server.")
+	a.api.Listen()
+	defer func() {
+		a.logger.Debug("Closing HTTP API server.")
+		if err := a.api.Close(); err != nil {
+			a.logger.Errorf("Couldn't close HTTP API server: %s.", err)
+		}
+		a.logger.Debug("Closed HTTP API server.")
+	}()
+	a.logger.Debug("Started HTTP API server.")
 
 	a.logger.Info("Launch complete. Send SIGINT to gracefully terminate.")
 	<-a.ctx.Done()
@@ -93,23 +109,19 @@ func main() {
 
 	lcf := zap.NewDevelopmentConfig() // to later switch level without reallocation
 	lcf.Level.SetLevel(zapcore.DebugLevel)
+	lcf.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	lcf.DisableCaller = true
 	log, _ := lcf.Build()
 
 	log.Info("Initializing application.")
-	a, err := newApp(ctx, lcf, log)
-	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			log.Sugar().Fatalf("Couldn't initialize application: %s.", err)
-		}
-
+	a, err := newApp(ctx, lcf, log.Sugar())
+	if err != nil && !errors.Is(err, context.Canceled) {
+		log.Sugar().Fatalf("Couldn't initialize application: %s.", err)
 		return
 	}
 
 	log.Debug("Initialization tasks complete, continuing with launch.")
-	if err := a.Run(); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			log.Sugar().Fatalf("Application crashed: %s.", err)
-		}
+	if err := a.Run(); err != nil && !errors.Is(err, context.Canceled) {
+		log.Sugar().Fatalf("Application crashed: %s.", err)
 	}
 }
