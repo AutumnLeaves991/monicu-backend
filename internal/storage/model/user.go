@@ -1,23 +1,15 @@
 package model
 
 import (
-	"context"
-
-	"github.com/jackc/pgx/v4"
+	"pkg.mon.icu/monicu/internal/util"
 )
 
 type User struct {
-	IdentifiableDiscordEntity
+	ID        uint   `gorm:"type:int;primaryKey;auto_increment"`
+	DiscordID uint64 `gorm:"notNull;uniqueIndex"`
+	Posts     []*Post
 }
 
-func NewUser(ID ID, discordID Snowflake) *User {
-	return &User{IdentifiableDiscordEntity{IdentifiableEntity{ID}, discordID}}
-}
-
-func WrapUserID(ID string) *User {
-	return NewUser(0, MustParseSnowflake(ID))
-}
-
-func FindOrCreateUser(ctx context.Context, tx pgx.Tx, u *User) error {
-	return query(ctx, tx, `with e as (insert into "user" (discord_id) values ($1) on conflict do nothing returning id) select id from e union select id from "user" where discord_id = $1`, []interface{}{u.DiscordID}, []interface{}{&u.ID})
+func ForUserID(DiscordID string) *User {
+	return &User{DiscordID: util.MustParseSnowflake(DiscordID)}
 }

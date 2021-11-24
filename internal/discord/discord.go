@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"go.uber.org/zap"
 	"pkg.mon.icu/monicu/internal/storage"
-	"pkg.mon.icu/monicu/internal/storage/model"
+	"pkg.mon.icu/monicu/internal/util"
 )
 
 type Config struct {
@@ -85,7 +85,7 @@ func (d *Discord) buildChannelGuildCache() {
 			continue
 		}
 
-		d.channelGuildRelations[chanID] = model.MustParseSnowflake(chann.GuildID)
+		d.channelGuildRelations[chanID] = util.MustParseSnowflake(chann.GuildID)
 	}
 }
 

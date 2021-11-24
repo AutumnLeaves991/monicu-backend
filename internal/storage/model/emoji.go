@@ -1,40 +1,26 @@
 package model
 
 import (
-	"context"
+	"database/sql"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jackc/pgx/v4"
+	"pkg.mon.icu/monicu/internal/util"
 )
 
 type Emoji struct {
-	NullIdentifiableDiscordEntity
-	Name string
+	ID        uint          `gorm:"type:int;primaryKey;auto_increment"`
+	DiscordID sql.NullInt64 `gorm:"uniqueIndex"`
+	Name      string        `gorm:"size:32;uniqueIndex:,where:discord_id is null"`
 }
 
-func NewEmoji(ID ID, discordID NullableSnowflake, name string) *Emoji {
-	return &Emoji{NullIdentifiableDiscordEntity{IdentifiableEntity{ID}, discordID}, name}
+func (e *Emoji) IsGuild() bool {
+	return e.DiscordID.Valid
 }
 
-func WrapDiscordEmoji(em *discordgo.Emoji) *Emoji {
+func ForEmoji(em *discordgo.Emoji) *Emoji {
 	if em.ID == "" {
-		return NewEmoji(0, NullableSnowflake{}, em.Name)
+		return &Emoji{Name: em.Name}
 	} else {
-		return NewEmoji(0, NullableSnowflake{Int64: int64(MustParseSnowflake(em.ID)), Valid: true}, em.Name)
+		return &Emoji{DiscordID: sql.NullInt64{Valid: true, Int64: util.MustParseSnowflakeInt64(em.ID)}, Name: em.Name}
 	}
-}
-
-func FindOrCreateEmoji(ctx context.Context, tx pgx.Tx, em *Emoji) error {
-	var sql string
-	var args []interface{}
-
-	if em.DiscordID.Valid {
-		sql = `with e as (insert into emoji (discord_id, name) values ($1, $2) on conflict do nothing returning id) select id from e union select id from emoji where discord_id = $1`
-		args = []interface{}{em.DiscordID, em.Name}
-	} else {
-		sql = `with e as (insert into emoji (name) values ($1) on conflict do nothing returning id) select id from e union select id from emoji where name = $1`
-		args = []interface{}{em.Name}
-	}
-
-	return query(ctx, tx, sql, args, []interface{}{&em.ID})
 }
