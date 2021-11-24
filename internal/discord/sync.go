@@ -126,8 +126,16 @@ func (d *Discord) syncChannels() {
 
 // isValidPost checks is message makes a valid post with images, returning false for messages that have no
 // image attachments or embeds.
-func isValidPost(m *discordgo.Message) bool {
-	return !(len(m.Attachments) == 0 && len(m.Embeds) == 0)
+func (d *Discord) isValidPost(m *discordgo.Message) bool {
+	if len(m.Attachments) == 0 && len(m.Embeds) == 0 {
+		return false
+	}
+
+	if d.config.ignoreRegexp.MatchString(m.Content) {
+		return false
+	}
+
+	return true
 }
 
 // createPostImages creates images for a post.
@@ -165,7 +173,7 @@ func (d *Discord) createPostImages(tx pgx.Tx, m *discordgo.Message, pm *model.Po
 
 // createPost creates a post from Discord message.
 func (d *Discord) createPost(m *discordgo.Message) {
-	if !isValidPost(m) {
+	if !d.isValidPost(m) {
 		d.logger.Debugf("Skipping message %s.", m.ID)
 		return
 	}
