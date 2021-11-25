@@ -7,7 +7,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
-	"pkg.mon.icu/monicu/internal/storage/_model"
 	"pkg.mon.icu/monicu/internal/storage/model"
 	"pkg.mon.icu/monicu/internal/util"
 )
@@ -213,7 +212,7 @@ func (d *Discord) createPostBase(db *gorm.DB, m *discordgo.Message) (*model.Post
 	if m.GuildID == "" {
 		// In cases such as channel synchronization message will likely lack GuildID
 		// So we pull it from the cache
-		m.GuildID = util.FormatSnowflake(d.channelGuildRelations[_model.MustParseSnowflake(m.ChannelID)])
+		m.GuildID = util.FormatSnowflake(d.channelGuildRelations[util.MustParseSnowflake(m.ChannelID)])
 	}
 
 	gm := model.ForGuildID(m.GuildID)

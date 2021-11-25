@@ -45,7 +45,7 @@ func NewAPI(ctx context.Context, logger *zap.SugaredLogger, storage *storage.Sto
 }
 
 func (a *API) Listen() {
-	a.registerGetPosts()
+	a.registerGetPostsAll()
 	go func() {
 		if err := a.serv.ListenAndServe(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {

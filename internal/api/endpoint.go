@@ -4,13 +4,16 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+	"pkg.mon.icu/monicu/internal/storage/model"
 )
 
-// registerGetPosts GET /posts/:page
-func (a *API) registerGetPosts() {
-	a.router.GET("/posts/:page", func(c *gin.Context) {
+// registerGetPostsAll GET /posts/all
+func (a *API) registerGetPostsAll() {
+	a.router.GET("/posts/all", func(c *gin.Context) {
 		var param struct {
-			Page uint32 `uri:"page"`
+			Limit  int `form:"limit" binding:"min=0,max=100"`
+			Offset int `form:"offset" binding:"min=0"`
 		}
 
 		if err := c.ShouldBindUri(&param); err != nil {
@@ -18,7 +21,19 @@ func (a *API) registerGetPosts() {
 			return
 		}
 
-		if posts, err := a.getAllPosts(param.Page); err != nil {
+		var posts []model.Post
+		if err := a.storage.Transaction(func(db *gorm.DB) error {
+			return db.
+				WithContext(a.ctx).
+				Limit(param.Limit).
+				Offset(param.Offset).
+				Order("discord_id desc").
+				Preload("Channel").
+				Preload("User").
+				Preload("Images").
+				Preload("Reactions.UserReactions").
+				Find(&posts).Error
+		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		} else {
