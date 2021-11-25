@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/bwmarrin/discordgo"
-	"pkg.mon.icu/monicu/internal/storage/model"
+	"pkg.mon.icu/monicu/internal/util"
 )
 
 // Util functions
@@ -47,22 +47,22 @@ func isGuildEvent(e interface{}) bool {
 // Handled event types: MessageCreate, MessageUpdate, MessageDelete, MessageDeleteBulk, MessageReactionAdd,
 // MessageReactionRemove, MessageReactionRemoveAll.
 func (d *Discord) shouldIgnoreEvent(e interface{}) bool {
-	var gID, cID model.Snowflake
+	var gID, cID uint64
 	switch e := e.(type) {
 	case *discordgo.MessageCreate:
-		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
+		gID, cID = util.MustParseSnowflake(e.GuildID), util.MustParseSnowflake(e.ChannelID)
 	case *discordgo.MessageUpdate:
-		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
+		gID, cID = util.MustParseSnowflake(e.GuildID), util.MustParseSnowflake(e.ChannelID)
 	case *discordgo.MessageDelete:
-		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
+		gID, cID = util.MustParseSnowflake(e.GuildID), util.MustParseSnowflake(e.ChannelID)
 	case *discordgo.MessageDeleteBulk:
-		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
+		gID, cID = util.MustParseSnowflake(e.GuildID), util.MustParseSnowflake(e.ChannelID)
 	case *discordgo.MessageReactionAdd:
-		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
+		gID, cID = util.MustParseSnowflake(e.GuildID), util.MustParseSnowflake(e.ChannelID)
 	case *discordgo.MessageReactionRemove:
-		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
+		gID, cID = util.MustParseSnowflake(e.GuildID), util.MustParseSnowflake(e.ChannelID)
 	case *discordgo.MessageReactionRemoveAll:
-		gID, cID = model.MustParseSnowflake(e.GuildID), model.MustParseSnowflake(e.ChannelID)
+		gID, cID = util.MustParseSnowflake(e.GuildID), util.MustParseSnowflake(e.ChannelID)
 	default:
 		panic(fmt.Errorf("unknown event type %s", reflect.TypeOf(e).Name()))
 	}
