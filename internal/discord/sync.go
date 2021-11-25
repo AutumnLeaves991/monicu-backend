@@ -257,6 +257,7 @@ func (d *Discord) createPost(m *discordgo.Message) {
 		if err := d.createPostReactions(db, m, pm); err != nil {
 			return err
 		}
+		d.logger.Infof("Created post for message %s.", m.ID)
 		return nil
 	}); err != nil && !errors.Is(err, context.Canceled) {
 		d.logger.Errorf("Failed to create reaction: %s.", err)
@@ -293,6 +294,7 @@ func (d *Discord) updatePost(m *discordgo.Message) {
 		if err := db.WithContext(d.ctx).Save(pm).Error; err != nil {
 			return err
 		}
+		d.logger.Infof("Updated post for message %s.", m.ID)
 		return nil
 	}); err != nil && !errors.Is(err, context.Canceled) {
 		d.logger.Errorf("Failed to update post: %s.", err)
@@ -306,6 +308,7 @@ func (d *Discord) deletePost(m *discordgo.Message) {
 		if err := db.WithContext(d.ctx).Delete(pm, "discord_id = ?", pm.DiscordID).Error; err != nil {
 			return err
 		}
+		d.logger.Infof("Deleted post for message %s.", m.ID)
 		return nil
 	}); err != nil && !errors.Is(err, context.Canceled) {
 		d.logger.Errorf("Failed to delete post: %s.", err)
@@ -358,6 +361,7 @@ func (d *Discord) addReaction(r *discordgo.MessageReaction) {
 			return err
 		}
 
+		d.logger.Infof("Added reaction to post for for message %s.", r.MessageID)
 		return nil
 	}); err != nil && !errors.Is(err, context.Canceled) {
 		d.logger.Errorf("Failed to add reaction: %s.", err)
@@ -401,6 +405,7 @@ func (d *Discord) removeReaction(r *discordgo.MessageReaction) {
 			return err
 		}
 
+		d.logger.Infof("Removed reaction from post for for message %s.", r.MessageID)
 		return nil
 	}); err != nil {
 		d.logger.Errorf("Failed to remove reaction: %s.", err)
@@ -423,6 +428,7 @@ func (d *Discord) removeReactionsBulk(r *discordgo.MessageReaction) {
 			return err
 		}
 
+		d.logger.Infof("Removed all reactions from post for for message %s.", r.MessageID)
 		return nil
 	}); err != nil {
 		d.logger.Errorf("Failed to remove all reactions: %s.", err)
