@@ -36,7 +36,6 @@ func (a *API) registerGetPostsAll() {
 				Find(&posts).Error
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		} else {
 			c.JSON(http.StatusOK, posts)
 		}
