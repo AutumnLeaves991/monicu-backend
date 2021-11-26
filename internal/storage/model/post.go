@@ -12,8 +12,8 @@ type Post struct {
 	Channel   *Channel    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	UserID    uint        `gorm:"index" json:"user_id"`
 	User      *User       `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
-	Images    []*Image    `json:"images"`
-	Reactions []*Reaction `json:"reactions"`
+	Images    []*Image    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"images"`
+	Reactions []*Reaction `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"reactions"`
 	Content   string      `json:"content"`
 }
 

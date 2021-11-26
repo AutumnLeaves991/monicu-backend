@@ -269,12 +269,13 @@ func (d *Discord) createPost(m *discordgo.Message) {
 func (d *Discord) updatePost(m *discordgo.Message) {
 	if err := d.storage.Transaction(func(db *gorm.DB) error {
 		pm := model.ForMessage(m)
-		if err := db.WithContext(d.ctx).Find(pm, "discord_id = ?", pm.DiscordID).Error; err != nil {
+		if err := db.WithContext(d.ctx).First(pm, "discord_id = ?", pm.DiscordID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				ogm, err := d.session.ChannelMessage(m.ChannelID, m.ID)
 				if err != nil {
 					return err
 				}
+				m.Content = ogm.Content
 				m.Author = ogm.Author
 				d.createPost(m)
 				return nil
@@ -285,13 +286,10 @@ func (d *Discord) updatePost(m *discordgo.Message) {
 			d.deletePost(m)
 			return nil
 		}
-		if err := db.WithContext(d.ctx).Delete(&model.Image{}, "post_id = ?", pm.ID).Error; err != nil {
+		if err := db.WithContext(d.ctx).Where("post_id = ?", pm.ID).Delete(&model.Image{}).Error; err != nil {
 			return err
 		}
 		if err := d.createPostImages(db, m, pm); err != nil {
-			return err
-		}
-		if err := db.WithContext(d.ctx).Save(pm).Error; err != nil {
 			return err
 		}
 		d.logger.Infof("Updated post for message %s.", m.ID)
@@ -424,7 +422,7 @@ func (d *Discord) removeReactionsBulk(r *discordgo.MessageReaction) {
 			return err
 		}
 
-		if err := db.WithContext(d.ctx).Delete(&model.Reaction{}, "post_id = ?", pm.ID).Error; err != nil {
+		if err := db.WithContext(d.ctx).Where("post_id = ?", pm.ID).Delete(&model.Reaction{}).Error; err != nil {
 			return err
 		}
 

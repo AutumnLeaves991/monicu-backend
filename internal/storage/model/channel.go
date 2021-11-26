@@ -9,7 +9,7 @@ type Channel struct {
 	DiscordID uint64  `gorm:"notNull;uniqueIndex" json:"-"`
 	GuildID   uint    `gorm:"index" json:"guild_id"`
 	Guild     *Guild  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
-	Posts     []*Post `json:"-"`
+	Posts     []*Post `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 
 func ForChannelID(DiscordID string) *Channel {
