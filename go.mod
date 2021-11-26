@@ -8,9 +8,10 @@ require (
 	github.com/gin-gonic/gin v1.7.4
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/spf13/viper v1.9.0
-	go.uber.org/zap v1.17.0
+	go.uber.org/zap v1.19.1
 	gorm.io/driver/postgres v1.2.2
 	gorm.io/gorm v1.22.3
+	moul.io/zapgorm2 v1.1.1
 )
 
 require (
@@ -49,7 +50,7 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect
 	golang.org/x/text v0.3.7 // indirect

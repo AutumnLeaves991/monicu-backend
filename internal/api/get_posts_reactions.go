@@ -23,20 +23,12 @@ func (a *API) registerGetPostsReactions() {
 
 		var posts []*model.Post
 		if err := a.storage.Transaction(func(db *gorm.DB) error {
-			// select p.*, count(distinct ur.user_id) as reactions
-			// from post p
-			//          join reaction r on p.id = r.post_id
-			//          join user_reaction ur on r.id = ur.reaction_id
-			// group by p.id
-			// order by reactions desc
 			return db.
 				WithContext(a.ctx).
 				Limit(param.Limit).
 				Offset(param.Offset).
 				Joins("join reactions on posts.id = reactions.post_id").
 				Joins("join user_reactions on reactions.id = user_reactions.reaction_id").
-				//Joins("Reaction").
-				//Joins("UserReaction").
 				Order("count(distinct user_reactions.id) desc").
 				Group("posts.id").
 				Preload("Channel.Guild").
@@ -47,7 +39,6 @@ func (a *API) registerGetPostsReactions() {
 				Find(&posts).Error
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		} else {
 			c.JSON(http.StatusOK, posts)
 		}
