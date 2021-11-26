@@ -5,11 +5,11 @@ import (
 )
 
 type Channel struct {
-	ID        uint   `gorm:"type:int;primaryKey;auto_increment"`
-	DiscordID uint64 `gorm:"notNull;uniqueIndex"`
-	GuildID   uint   `gorm:"index"`
-	Guild     *Guild `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Posts     []*Post
+	ID        uint    `gorm:"type:int;primaryKey;auto_increment" json:"id"`
+	DiscordID uint64  `gorm:"notNull;uniqueIndex" json:"-"`
+	GuildID   uint    `gorm:"index" json:"guild_id"`
+	Guild     *Guild  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Posts     []*Post `json:"-"`
 }
 
 func ForChannelID(DiscordID string) *Channel {

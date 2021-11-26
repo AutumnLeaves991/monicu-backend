@@ -8,9 +8,9 @@ import (
 )
 
 type Emoji struct {
-	ID        uint          `gorm:"type:int;primaryKey;auto_increment"`
-	DiscordID sql.NullInt64 `gorm:"uniqueIndex"`
-	Name      string        `gorm:"size:32;uniqueIndex:,where:discord_id is null"`
+	ID        uint          `gorm:"type:int;primaryKey;auto_increment" json:"id"`
+	DiscordID sql.NullInt64 `gorm:"uniqueIndex" json:"-"`
+	Name      string        `gorm:"size:32;uniqueIndex:,where:discord_id is null" json:"name"`
 }
 
 func (e *Emoji) IsGuild() bool {

@@ -11,13 +11,13 @@ import (
 )
 
 type Image struct {
-	ID     uint  `gorm:"type:int;primaryKey;auto_increment"`
-	PostID uint  `gorm:"index"`
-	Post   *Post `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	URL    string
-	Width  uint
-	Height uint
-	Size   uint64
+	ID     uint   `gorm:"type:int;primaryKey;auto_increment" json:"-"`
+	PostID uint   `gorm:"index" json:"post_id"`
+	Post   *Post  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	URL    string `json:"url"`
+	Width  uint   `json:"width"`
+	Height uint   `json:"height"`
+	Size   uint64 `json:"size"`
 }
 
 func ForDiscordAttachment(at *discordgo.MessageAttachment) *Image {
