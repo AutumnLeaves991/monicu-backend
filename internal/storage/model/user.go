@@ -7,7 +7,7 @@ import (
 type User struct {
 	ID        uint    `gorm:"type:int;primaryKey;auto_increment" json:"id"`
 	DiscordID uint64  `gorm:"notNull;uniqueIndex" json:"-"`
-	Posts     []*Post `json:"-"`
+	Posts     []*Post `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 
 func ForUserID(DiscordID string) *User {

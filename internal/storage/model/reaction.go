@@ -6,7 +6,7 @@ type Reaction struct {
 	Post          *Post           `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	EmojiID       uint            `gorm:"uniqueIndex:idx_reaction_post_id_emoji_id" json:"emoji_id"`
 	Emoji         *Emoji          `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
-	UserReactions []*UserReaction `json:"users"`
+	UserReactions []*UserReaction `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"users"`
 }
 
 func NewReaction(PostID uint, EmojiID uint) *Reaction {
