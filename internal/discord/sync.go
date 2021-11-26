@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"pkg.mon.icu/monicu/internal/storage/model"
 	"pkg.mon.icu/monicu/internal/util"
 )
@@ -89,14 +91,22 @@ func (d *Discord) syncChannel(ID string) {
 		if len(ms) == 0 {
 			break
 		}
+
+		wg := &sync.WaitGroup{}
 		for _, m := range ms {
 			if d.ctx.Err() != nil {
 				return
 			}
 
 			// todo concurrency
-			d.createPost(m)
+			wg.Add(1)
+			m := m
+			go func() {
+				defer wg.Done()
+				d.createPost(m)
+			}()
 		}
+		wg.Wait()
 
 		beforeID = ms[len(ms)-1].ID
 	}
@@ -106,13 +116,13 @@ func (d *Discord) syncChannel(ID string) {
 // that do not require initial synchronization.
 func (d *Discord) syncChannels() {
 	for _, c := range d.config.chans.Values() {
-		sync, err := d.isSyncRequired(c)
+		shouldSync, err := d.isSyncRequired(c)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			d.logger.Errorf("Failed to check if channel %d should be synchronized: %s.", c, err)
 			continue
 		}
 
-		if sync {
+		if shouldSync {
 			// todo concurrency
 			d.syncChannel(util.FormatSnowflake(c))
 		}
@@ -138,9 +148,15 @@ func (d *Discord) createPostReactions(db *gorm.DB, m *discordgo.Message, pm *mod
 		em := model.ForEmoji(r.Emoji)
 		var err error
 		if em.IsGuild() {
-			err = db.WithContext(d.ctx).FirstOrCreate(em, "discord_id = ?", em.DiscordID).Error
+			err = db.
+				WithContext(d.ctx).
+				Clauses(clause.OnConflict{DoNothing: true}).
+				FirstOrCreate(em, "discord_id = ?", em.DiscordID).Error
 		} else {
-			err = db.WithContext(d.ctx).FirstOrCreate(em, "name = ?", em.Name).Error
+			err = db.
+				WithContext(d.ctx).
+				Clauses(clause.OnConflict{DoNothing: true}).
+				FirstOrCreate(em, "name = ?", em.Name).Error
 		}
 		if err != nil {
 			return err
@@ -162,7 +178,10 @@ func (d *Discord) createPostReactions(db *gorm.DB, m *discordgo.Message, pm *mod
 			}
 			for _, u := range us {
 				um := model.ForUserID(u.ID)
-				if err := db.WithContext(d.ctx).FirstOrCreate(um, "discord_id = ?", um.DiscordID).Error; err != nil {
+				if err := db.
+					WithContext(d.ctx).
+					Clauses(clause.OnConflict{DoNothing: true}).
+					FirstOrCreate(um, "discord_id = ?", um.DiscordID).Error; err != nil {
 					return err
 				}
 
@@ -227,7 +246,9 @@ func (d *Discord) createPostBase(db *gorm.DB, m *discordgo.Message) (*model.Post
 	}
 
 	um := model.ForUserID(m.Author.ID)
-	if err := db.WithContext(d.ctx).FirstOrCreate(um, "discord_id = ?", um.DiscordID).Error; err != nil {
+	if err := db.WithContext(d.ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		FirstOrCreate(um, "discord_id = ?", um.DiscordID).Error; err != nil {
 		return nil, err
 	}
 
@@ -336,9 +357,15 @@ func (d *Discord) addReaction(r *discordgo.MessageReaction) {
 		em := model.ForEmoji(&r.Emoji)
 		var err error
 		if em.IsGuild() {
-			err = db.WithContext(d.ctx).FirstOrCreate(em, "discord_id = ?", em.DiscordID).Error
+			err = db.
+				WithContext(d.ctx).
+				Clauses(clause.OnConflict{DoNothing: true}).
+				FirstOrCreate(em, "discord_id = ?", em.DiscordID).Error
 		} else {
-			err = db.WithContext(d.ctx).FirstOrCreate(em, "name = ?", em.Name).Error
+			err = db.
+				WithContext(d.ctx).
+				Clauses(clause.OnConflict{DoNothing: true}).
+				FirstOrCreate(em, "name = ?", em.Name).Error
 		}
 		if err != nil {
 			return err
@@ -350,7 +377,10 @@ func (d *Discord) addReaction(r *discordgo.MessageReaction) {
 		}
 
 		um := model.ForUserID(r.UserID)
-		if err := db.WithContext(d.ctx).FirstOrCreate(um, "discord_id = ?", um.DiscordID).Error; err != nil {
+		if err := db.
+			WithContext(d.ctx).
+			Clauses(clause.OnConflict{DoNothing: true}).
+			FirstOrCreate(um, "discord_id = ?", um.DiscordID).Error; err != nil {
 			return err
 		}
 
@@ -381,9 +411,15 @@ func (d *Discord) removeReaction(r *discordgo.MessageReaction) {
 		em := model.ForEmoji(&r.Emoji)
 		var err error
 		if em.IsGuild() {
-			err = db.WithContext(d.ctx).FirstOrCreate(em, "discord_id = ?", em.DiscordID).Error
+			err = db.
+				WithContext(d.ctx).
+				Clauses(clause.OnConflict{DoNothing: true}).
+				FirstOrCreate(em, "discord_id = ?", em.DiscordID).Error
 		} else {
-			err = db.WithContext(d.ctx).FirstOrCreate(em, "name = ?", em.Name).Error
+			err = db.
+				WithContext(d.ctx).
+				Clauses(clause.OnConflict{DoNothing: true}).
+				FirstOrCreate(em, "name = ?", em.Name).Error
 		}
 		if err != nil {
 			return err
@@ -395,7 +431,10 @@ func (d *Discord) removeReaction(r *discordgo.MessageReaction) {
 		}
 
 		um := model.ForUserID(r.UserID)
-		if err := db.WithContext(d.ctx).FirstOrCreate(um, "discord_id = ?", um.DiscordID).Error; err != nil {
+		if err := db.
+			WithContext(d.ctx).
+			Clauses(clause.OnConflict{DoNothing: true}).
+			FirstOrCreate(um, "discord_id = ?", um.DiscordID).Error; err != nil {
 			return err
 		}
 
