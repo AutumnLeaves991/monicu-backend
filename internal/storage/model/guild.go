@@ -5,9 +5,9 @@ import (
 )
 
 type Guild struct {
-	ID        uint   `gorm:"type:int;primaryKey;auto_increment"`
-	DiscordID uint64 `gorm:"notNull;uniqueIndex"`
-	Channels  []*Channel
+	ID        uint       `gorm:"type:int;primaryKey;auto_increment" json:"id"`
+	DiscordID uint64     `gorm:"notNull;uniqueIndex" json:"-"`
+	Channels  []*Channel `json:"-"`
 }
 
 func ForGuildID(DiscordID string) *Guild {
